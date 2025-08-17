@@ -228,18 +228,12 @@
         const params = new URLSearchParams(location.search);
         const user = params.get('user') || 'user_001';
 
-        // 页面清单：先放“评分标准 + 6个示例”，其余等数据加载后再 push
+        // 先只放固定页，示例页与共识页等数据加载后再动态追加
         const pages = [
             {type: 'welcome', title: '欢迎'},
             {type: 'standard', title: '评分标准表'},
-            {type: 'notice', title: '注意事项'},
-            {type: 'sample', title: '示例 1'},
-            {type: 'sample', title: '示例 2'},
-            {type: 'sample', title: '示例 3'},
-            {type: 'sample', title: '示例 4'},
-            {type: 'sample', title: '示例 5'},
+            {type: 'notice', title: '注意事项'}
         ];
-
 
         const els = {
             idxList: document.getElementById('idxList'),
@@ -247,17 +241,22 @@
             meta: document.getElementById('metaInfo')
         };
 
-        let samples = [];     // data/training_samples.json
-        let prompts = {};     // data/prompts_bi.json
-        let consensus = [];   // data/consensus_test.json
+        let samples = [];   // data/training_samples.json
+        let prompts = {};   // data/prompts_bi.json
+        let consensus = []; // data/consensus_test.json
 
         let current = 0;
 
-        // —— 共识测试评分：本地续存（跨重启不丢）
+        // —— 共识测试评分：本地续存（跨重启不丢）——
         const CONS_KEY = `consensus_${user}`;
-        const consResults = new Map(); // video_id -> {video_id,s1..s4,avg,saved_at}
+        // 新逻辑：以“唯一 key（video_id#index）”为键，避免重复题覆盖
+        const consResults = new Map(); // key -> {key,cons_index,video_id,repeat_of,s1..s4,avg,saved_at}
+        function consKeyByIndex(i) {
+            const t = consensus[i];
+            return `${t.video_id}#${i}`;
+        }
 
-        // 渲染侧边目录（带进度着色）
+        // —— 侧边目录 —— //
         function renderIndex() {
             const frag = document.createDocumentFragment();
             pages.forEach((p, idx) => {
@@ -265,12 +264,10 @@
                 b.className = 'idxbtn' + (idx === current ? ' active' : '');
                 b.textContent = `${idx + 1}. ${p.title}`;
 
-                // 对“共识测试题页”做完成着色
+                // 共识题完成着色
                 if (p.type === 'cons_task') {
-                    const item = consensus[p.idx];
-                    if (item && consResults.has(item.video_id)) {
-                        b.classList.add('done');
-                    }
+                    const k = consKeyByIndex(p.idx);
+                    if (consResults.has(k)) b.classList.add('done');
                 }
 
                 b.addEventListener('click', () => load(idx));
@@ -281,307 +278,236 @@
         }
 
         function setActive(idx) {
-            const btns = els.idxList.querySelectorAll('.idxbtn');
-            btns.forEach((b, i) => b.classList.toggle('active', i === idx));
+            els.idxList.querySelectorAll('.idxbtn').forEach((b, i) => b.classList.toggle('active', i === idx));
         }
 
         function updateIndexDoneStates() {
-            // 动态为已完成的共识题加 done
             const btns = els.idxList.querySelectorAll('.idxbtn');
             pages.forEach((p, idx) => {
                 if (p.type === 'cons_task') {
-                    const item = consensus[p.idx];
-                    btns[idx]?.classList.toggle('done', !!(item && consResults.has(item.video_id)));
+                    const k = consKeyByIndex(p.idx);
+                    btns[idx]?.classList.toggle('done', consResults.has(k));
                 }
             });
         }
 
-        // 顶部 meta 文案：在共识环节显示进度，其它环节显示培训进度
+        // —— 顶部进度提示 —— //
         function updateMeta() {
             const p = pages[current];
             if (p.type === 'cons_task' || p.type === 'cons_intro' || p.type === 'cons_export') {
-                els.meta.innerHTML = `共识测试进度：<strong>${consResults.size}/${consensus.length}</strong>（已完成/总数）。`;
+                const doneCount = consensus.reduce((acc, _, i) => acc + (consResults.has(consKeyByIndex(i)) ? 1 : 0), 0);
+                els.meta.innerHTML = `共识测试进度：<strong>${doneCount}/${consensus.length}</strong>（已完成/总数）。`;
             } else {
-                els.meta.textContent = '请先阅读评分标准，并参考 5 个示例；完成后进行共识测试并下载数据，再进入正式评分。';
+                els.meta.textContent = `请先阅读评分标准与注意事项，并阅读 ${samples.length || '若干'} 个典型示例；完成后进行共识测试并下载数据，再进入正式评分。`;
             }
         }
 
-        // —— 欢迎页面
+        // —— 欢迎页 —— //
         function renderWelcome() {
             els.main.innerHTML = `
-    <h2>欢迎参加「多人动作评分」实验</h2>
-    <p>感谢你参与本次研究！本实验旨在评估与改进多人动作生成模型的感知质量。目标是让模型生成的动作更自然、更流畅且更符合人类直觉与生理常识，尤其是在多人互动场景中的配合与空间合理性。</p>
+      <h2>欢迎参加「多人动作评分」实验</h2>
+      <p>感谢你参与本次研究！本实验旨在评估与改进多人动作生成模型的感知质量。目标是让模型生成的动作更自然、更流畅且更符合人类直觉与生理常识，尤其是在多人互动场景中的配合与空间合理性。</p>
 
-    <h3>实验流程</h3>
-    <ol>
-      <li><strong>评分标准表：</strong>先了解四个评分维度及其 1–5 分的定义。</li>
-      <li><strong>注意事项：</strong>了解保存方式、浏览器要求与数据备份。</li>
-      <li><strong>示例学习：</strong>观看若干示例（双视角），对照我们给出的示例评分与解析，快速熟悉标准。</li>
-      <li><strong>共识测试：</strong>完成共识测试，这是一组统一的小规模题目，并下载保存 CSV 结果。</li>
-      <li><strong>正式评分：</strong>进入正式任务，对分配给你的动作样本进行评分并导出 CSV。</li>
-    </ol>
+      <h3>实验流程</h3>
+      <ol>
+        <li><strong>评分标准表：</strong>先了解四个评分维度及其 1–5 分的定义。</li>
+        <li><strong>注意事项：</strong>了解保存方式、浏览器要求与数据备份。</li>
+        <li><strong>示例学习：</strong>观看${samples.length || '若干'}个示例（双视角），对照示例评分与解析，快速熟悉标准。</li>
+        <li><strong>共识测试：</strong>完成统一的 19 道共识测试（含重复题），并下载保存 CSV 结果。</li>
+        <li><strong>正式评分：</strong>进入正式任务，对分配给你的动作样本进行评分并导出 CSV。</li>
+      </ol>
 
-    <h3>我们的研究与数据集贡献</h3>
-    <p>现有自动指标与人类感知并不完全一致，难以全面反映动作质量。本研究通过大规模人类感知反馈建立数据集，并训练<strong>人感知对齐的动作评论模型（MotionCritic）</strong>，使其作为更符合人类判断的质量度量，并可用作生成模型的轻量监督信号，以提升生成质量。你的评分将直接帮助我们构建<strong>多人动作</strong>的感知数据，为未来的动作生成研究与评测提供更可靠的参考。</p>
+      <h3>我们的研究与数据集贡献</h3>
+      <p>现有自动指标与人类感知并不完全一致，难以全面反映动作质量。本研究通过大规模人类感知反馈建立数据集，并训练<strong>人感知对齐的动作评论模型（MotionCritic）</strong>，使其作为更符合人类判断的质量度量，并可用作生成模型的轻量监督信号，以提升生成质量。你的评分将直接帮助我们构建<strong>多人动作</strong>的感知数据，为未来的动作生成研究与评测提供更可靠的参考。</p>
 
-    <p><em>再次感谢你的参与！你的认真评分将帮助学界更准确地评价和改进动作生成模型。</em></p>
+      <p><em>再次感谢你的参与！你的认真评分将帮助学界更准确地评价和改进动作生成模型。</em></p>
 
-    <div class="cta">
-      <button class="btn" id="toNext">下一页：评分标准表</button>
-    </div>
-  `;
+      <div class="cta">
+        <button class="btn" id="toNext">下一页：评分标准表</button>
+      </div>
+    `;
             document.getElementById('toNext').addEventListener('click', () => load(current + 1));
         }
 
-
-        // —— 评分标准表（来自你的文档，网页化展示）——
+        // —— 评分标准表（含维度解释） —— //
         function renderStandard() {
             els.main.innerHTML = `
-    <h2>评分标准表</h2>
-    <table class="std-table">
-      <thead>
-        <tr>
-          <th>评分维度</th>
-          <th>1 分</th><th>2 分</th><th>3 分</th><th>4 分</th><th>5 分</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>动作自然性 <span class="std-ename">Motion Naturalness</span></td>
-          <td>明显不自然、断裂/跳变、严重抖动（像机器人）。</td>
-          <td>局部僵硬、过渡不连贯，偶有异常姿势。</td>
-          <td>整体尚自然，轻微不协调可接受。</td>
-          <td>流畅协调，基本符合生理逻辑。</td>
-          <td>极度自然、连续平滑、细节丰富。</td>
-        </tr>
-        <tr>
-          <td>多人互动清晰度 <span class="std-ename">Interaction Clarity</span></td>
-          <td>几乎无互动或互动模糊，意图不可辨。</td>
-          <td>有互动迹象但配合不足，目标模糊。</td>
-          <td>互动结构可辨，部分回应不到位。</td>
-          <td>互动明确、配合良好，有因果链。</td>
-          <td>高度清晰、连贯，回应紧密。</td>
-        </tr>
-        <tr>
-          <td>空间合理性与穿插控制 <span class="std-ename">Spatial Plausibility & Penetration</span></td>
-          <td>多次明显穿插/重叠/错位。</td>
-          <td>偶有穿插，站位常不合理。</td>
-          <td>少量穿插（多见复杂动作），整体可接受。</td>
-          <td>空间自然、距离恰当，无明显穿插。</td>
-          <td>完全无穿插，空间布局精准自然。</td>
-        </tr>
-        <tr>
-          <td>场景契合度 <span class="std-ename">Scene / Prompt Relevance</span></td>
-          <td>与描述严重不符，语义缺失明显。</td>
-          <td>部分契合但总体偏离主题。</td>
-          <td>大致符合，关键点不够到位。</td>
-          <td>高度一致，语义清晰到位。</td>
-          <td>精确匹配且富有节奏/情绪张力。</td>
-        </tr>
-      </tbody>
-    </table>
+      <h2>评分标准表</h2>
+      <table class="std-table">
+        <thead>
+          <tr><th>评分维度</th><th>1 分</th><th>2 分</th><th>3 分</th><th>4 分</th><th>5 分</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>动作自然性 <span class="std-ename">Motion Naturalness</span></td>
+            <td>明显不自然、断裂/跳变、严重抖动（像机器人）。</td>
+            <td>局部僵硬、过渡不连贯，偶有异常姿势。</td>
+            <td>整体尚自然，轻微不协调可接受。</td>
+            <td>流畅协调，基本符合生理逻辑。</td>
+            <td>极度自然、连续平滑、细节丰富。</td>
+          </tr>
+          <tr>
+            <td>多人互动清晰度 <span class="std-ename">Interaction Clarity</span></td>
+            <td>几乎无互动或互动模糊，意图不可辨。</td>
+            <td>有互动迹象但配合不足，目标模糊。</td>
+            <td>互动结构可辨，部分回应不到位。</td>
+            <td>互动明确、配合良好，有因果链。</td>
+            <td>高度清晰、连贯，回应紧密。</td>
+          </tr>
+          <tr>
+            <td>空间合理性与穿插控制 <span class="std-ename">Spatial Plausibility & Penetration</span></td>
+            <td>多次明显穿插/重叠/错位。</td>
+            <td>偶有穿插，站位常不合理。</td>
+            <td>少量穿插（多见复杂动作），整体可接受。</td>
+            <td>空间自然、距离恰当，无明显穿插。</td>
+            <td>完全无穿插，空间布局精准自然。</td>
+          </tr>
+          <tr>
+            <td>场景契合度 <span class="std-ename">Scene / Prompt Relevance</span></td>
+            <td>与描述严重不符，语义缺失明显。</td>
+            <td>部分契合但总体偏离主题。</td>
+            <td>大致符合，关键点不够到位。</td>
+            <td>高度一致，语义清晰到位。</td>
+            <td>精确匹配且富有节奏/情绪张力。</td>
+          </tr>
+        </tbody>
+      </table>
 
-    <!-- ★ 新增：评分维度详细解释（来自你的文档，精炼呈现） -->
-    <div class="analysis-box" style="margin-top:16px">
-      <h3>评分维度详细解释(仅供参考)</h3>
+      <div class="analysis-box" style="margin-top:16px">
+        <h3>评分维度详细解释(仅供参考)</h3>
 
-      <h4>1) 动作自然性（只评价动作本身的生物学合理性与流畅性）</h4>
-      <ul>
-        <li><strong>看点：</strong>是否“有意图的运动”；关节转动是否合逻辑；过渡是否平滑。</li>
-        <li><strong>常见扣分：</strong>断裂/突然跳变；严重抖动（头部轻微抖动可宽容）；僵硬像木偶；脚步平移无屈膝；随机挥舞。</li>
-        <li><strong>加分线索：</strong>连贯顺滑、姿势自然；手臂随动/转头等细节；整体接近真人演示。</li>
-        <li><strong>注意：</strong>根据不自然程度来判断，例如：轻微的抖动可以只扣一分</li>
-      </ul>
+        <h4>1) 动作自然性（评价动作本身的生物学合理性与流畅性）</h4>
+        <ul>
+          <li><strong>看点：</strong>是否“有意图的运动”；关节转动是否合逻辑；过渡是否平滑。</li>
+          <li><strong>常见扣分：</strong>断裂/突然跳变；严重抖动（头部轻微抖动可宽容）；僵硬像木偶；脚步平移无屈膝；随机挥舞。</li>
+          <li><strong>加分线索：</strong>连贯顺滑、姿势自然；手臂随动/转头等细节；整体接近真人演示。</li>
+          <li><strong>注意：</strong>根据不自然程度来判断，例如轻微抖动可只降 1 分。</li>
+        </ul>
 
-      <h4>2) 多人互动清晰度（是否能看出明确互动或良好区分）</h4>
-      <ul>
-        <li><strong>看点：</strong>面对面/攻防/传接等是否清晰，有无因果链或配合关系。</li>
-        <li><strong>常见扣分：</strong>应有互动却“各跳各的”；有对视无回应；不知谁与谁互动。</li>
-        <li><strong>加分线索：</strong>“攻击–闪避”“握手”“传–接”等明确响应；无需互动的场景下，两人动作也清楚不干扰。</li>
-        <li><strong>注意：</strong>Prompt 不要求互动时，不要强行打低分；具体例子请看示例一说明</li>
-      </ul>
+        <h4>2) 多人互动清晰度（是否能看出明确互动或良好区分）</h4>
+        <ul>
+          <li><strong>看点：</strong>面对面/攻防/传接等是否清晰，有无因果链或配合关系。</li>
+          <li><strong>常见扣分：</strong>应有互动却“各跳各的”；有对视无回应；不知谁与谁互动。</li>
+          <li><strong>加分线索：</strong>“攻击–闪避”“握手”“传–接”等明确响应；无需互动的场景下，两人动作也清楚不干扰。</li>
+          <li><strong>注意：</strong>Prompt 不要求互动时，不要强行打低分；具体例子可参考示例。</li>
+        </ul>
 
-      <h4>3) 空间合理性与穿插控制（距离/站位/是否穿插）</h4>
-      <ul>
-        <li><strong>看点：</strong>对打/舞蹈的安全距离与间隔；角色之间是否穿插、重叠、错位。</li>
-        <li><strong>常见扣分：</strong>手臂穿过身体/对方；身体重叠；脚插地或插对方；位置极不合理；频繁穿插。</li>
-        <li><strong>加分线索：</strong>距离合适、布局自然；完全无穿插；协调程度像真实表演。</li>
-        <li><strong>注意：</strong>复杂动作少量穿插可接受（≈3 分）；若整体合理仅个别手指/脚尖轻微穿插，可从 4 调至 3，不必过重惩罚；两个角色距离的过远或过近都可扣分</li>
-      </ul>
+        <h4>3) 空间合理性与穿插控制（距离/站位/是否穿插）</h4>
+        <ul>
+          <li><strong>看点：</strong>对打/舞蹈的安全距离与间隔；角色之间是否穿插、重叠、错位。</li>
+          <li><strong>常见扣分：</strong>手臂穿过身体/对方；身体重叠；脚插地或插对方；位置极不合理；频繁穿插。</li>
+          <li><strong>加分线索：</strong>距离合适、布局自然；完全无穿插；协调程度像真实表演。</li>
+          <li><strong>注意：</strong>复杂动作少量穿插可接受（≈3 分）；若整体合理仅个别手指/脚尖轻微穿插，可从 4 调至 3。</li>
+        </ul>
 
-      <h4>4) 场景契合度（是否符合文本描述/角色分工）</h4>
-      <ul>
-        <li><strong>看点：</strong>动作是否与描述一致，是否避免与 prompt 冲突；多要素是否分别落实。</li>
-        <li><strong>常见扣分：</strong>严重不符（如“跳舞”→在走路）；只完成部分语义；两人混乱（本应甲做的动作却乙也做/做错人）。</li>
-        <li><strong>加分线索：</strong>覆盖主要语义点；关键动作一目了然；还体现节奏/情绪张力、沉浸感强。</li>
-        <li><strong>注意：</strong>与自然性独立：自然不代表契合；多要素要逐一检查是否到位。</li>
-      </ul>
+        <h4>4) 场景契合度（是否符合文本描述/角色分工）</h4>
+        <ul>
+          <li><strong>看点：</strong>动作是否与描述一致，是否避免与 prompt 冲突；多要素是否分别落实。</li>
+          <li><strong>常见扣分：</strong>严重不符；只完成部分语义；两人混乱（该甲做的动作却乙在做）。</li>
+          <li><strong>加分线索：</strong>覆盖主要语义点；关键动作一目了然；还体现节奏/情绪张力。</li>
+          <li><strong>注意：</strong>与自然性独立：自然不代表契合；多要素要逐一检查是否到位。</li>
+        </ul>
 
-      <h4>评审提醒</h4>
-      <p>四个维度<strong>相互独立</strong>。请不要被“整体感觉”带偏：</p>
-      <ul>
-        <li>自然性 = 5，但无互动 → 互动清晰度仍应打低分（如 1）。</li>
-        <li>契合度 = 5，但有严重穿插 → 空间合理性应打低分（如 1）。</li>
-      </ul>
-      <p>你的任务是 在每个维度上独立判断并打分，而不是做一个“总印象分”</p>
-    </div>
+        <h4>评审提醒</h4>
+        <p>四个维度<strong>相互独立</strong>。请不要被“整体感觉”带偏：</p>
+        <ul>
+          <li>自然性 = 5，但无互动 → 互动清晰度仍应打低分（如 1）。</li>
+          <li>契合度 = 5，但有严重穿插 → 空间合理性应打低分（如 1）。</li>
+        </ul>
+      </div>
 
-    <div class="cta">
-      <button class="btn" id="toNext">下一页：注意事项</button>
-    </div>
-  `;
+      <div class="cta">
+        <button class="btn" id="toNext">下一页：注意事项</button>
+      </div>
+    `;
             document.getElementById('toNext').addEventListener('click', () => load(current + 1));
         }
 
-        //注意事项页面
+        // —— 注意事项 —— //
         function renderNotice() {
             els.main.innerHTML = `
-    <h2>注意事项</h2>
-    <ol>
-      <li>关于动作的描述文本：页面提供了中英文双语说明。中文部分为机器翻译，可能存在不准确之处，请以英文文本为准。</li>
-      <li>在完成每个样本的评分后，请务必点击 <strong>“保存当前评分”</strong> 按钮，以确保结果被正确保存。</li>
-      <li>实验过程中，你的评分结果会保存在本地浏览器中。你可以随时关闭页面或电脑，数据不会丢失。但请不要清除浏览器记录，也不要在无痕模式下访问实验网站。</li>
-      <li>完成共识测试后，请下载并妥善保存生成的 CSV 文件作为备份。在完成正式实验后，同样需要下载并妥善保存正式实验结果的 CSV 文件。</li>
-    </ol>
-    <div class="cta">
-      <button class="btn" id="toNext">下一页：示例 1</button>
-    </div>
-  `;
+      <h2>注意事项</h2>
+      <ol>
+        <li>页面提供中英文双语描述。中文为机器翻译，可能不准确，请以英文为准。</li>
+        <li>完成每个样本评分后，请务必点击 <strong>“保存当前评分”</strong>。</li>
+        <li>评分结果保存在本地浏览器；可随时关闭页面或电脑，但请不要清除浏览器数据，也不要在无痕模式下访问。</li>
+        <li>完成共识测试与正式实验后，请分别下载并妥善保存生成的 CSV 文件。</li>
+      </ol>
+      <div class="cta"><button class="btn" id="toNext">下一页：示例 1</button></div>
+    `;
             document.getElementById('toNext').addEventListener('click', () => load(current + 1));
         }
 
-
-        // —— 示例页：两视角 + prompt + 预填分数（禁用）+ 评分解析 —— //
-        function rubricText(dim, score) {
-            const T = {
-                s1: {
-                    1: "明显不自然，姿态僵硬或跳动（Jitter）。",
-                    2: "局部僵硬、过渡不连贯，偶有异常姿势。",
-                    3: "整体自然，轻微不协调，可接受。",
-                    4: "流畅协调，基本符合生理逻辑。",
-                    5: "极度自然，如真人表演，连续平滑。"
-                },
-                s2: {
-                    1: "几乎无交互或交互模糊，意图不可辨。",
-                    2: "有交互迹象但配合不足，目标模糊。",
-                    3: "交互结构可辨，部分回应不到位。",
-                    4: "交互明确，配合良好，有往返关系。",
-                    5: "高度清晰、连贯，存在紧密回应链。"
-                },
-                s3: {
-                    1: "多次明显肢体穿插或严重交错。",
-                    2: "偶有穿插，站位常不合理（过近/过远）。",
-                    3: "少量穿插发生在复杂动作中，整体尚可。",
-                    4: "空间关系自然，无明显穿插，距离恰当。",
-                    5: "完全无穿插，空间结构自然合理。"
-                },
-                s4: {
-                    1: "与文本/场景严重不符，无法表达含义。",
-                    2: "有部分契合点，但总体偏离主题。",
-                    3: "大致符合，情境表达不够到位。",
-                    4: "高度一致，语义清晰到位。",
-                    5: "与描述精确匹配且富有张力、沉浸感强。"
-                }
-            };
-            return T[dim]?.[score] || "";
-        }
-
+        // —— 示例页（双视角 + 预填分 + 你的自定义解析）—— //
         function renderAnalysis(s) {
             const ex = s.explain;
-            if (!ex) return '';                   // 没有 explain 就不显示解析模块
-
-            // 仅渲染你写了的字段；没写的维度不出现
+            if (!ex) return '';
             const rows = [];
             if (ex.s1) rows.push(`<li><strong>动作自然性</strong>：${ex.s1}</li>`);
             if (ex.s2) rows.push(`<li><strong>多人互动清晰度</strong>：${ex.s2}</li>`);
             if (ex.s3) rows.push(`<li><strong>空间合理性与穿插控制</strong>：${ex.s3}</li>`);
             if (ex.s4) rows.push(`<li><strong>场景契合度</strong>：${ex.s4}</li>`);
-
             const hasList = rows.length > 0;
             const overall = ex.overall ? `<div style="margin-top:8px;"><strong>综合说明：</strong>${ex.overall}</div>` : '';
-
-            // 如果四个维度都没写且只有 overall，就只显示 overall，不显示列表
             if (!hasList && overall) {
-                return `
-      <div class="analysis-box">
-        <h3>评分解析</h3>
-        ${overall}
-      </div>
-    `;
+                return `<div class="analysis-box"><h3>评分解析</h3>${overall}</div>`;
             }
-
-            // 有写到某些维度，就显示列表；overall 有则追加
             if (hasList) {
-                return `
-      <div class="analysis-box">
-        <h3>评分解析</h3>
-        <ul>
-          ${rows.join('')}
-        </ul>
-        ${overall}
-      </div>
-    `;
+                return `<div class="analysis-box"><h3>评分解析</h3><ul>${rows.join('')}</ul>${overall}</div>`;
             }
-
-            // 既没有维度、也没有 overall：不显示
             return '';
         }
-
 
         function renderRow(label, name, val) {
             const cells = [1, 2, 3, 4, 5].map(v => `<td><input type="radio" name="${name}" value="${v}" ${v === val ? 'checked' : ''} disabled></td>`).join('');
             return `<tr><td class="rowlabel">${label}</td>${cells}</tr>`;
         }
 
-        function renderSample(idxInSamples) {
-            const s = samples[idxInSamples];
+        function renderSample(idx) {
+            const s = samples[idx];
             const bi = prompts[s.prompt_id] || {};
             const en = bi.en || '', zh = bi.zh || '';
             const avg = ((s.prefill.s1 + s.prefill.s2 + s.prefill.s3 + s.prefill.s4) / 4).toFixed(2);
-
             els.main.innerHTML = `
-    <h2>${pages[current].title}</h2>
-    <div class="video-grid">
-      <div><div class="muted">视角 A</div><video controls preload="metadata" src="${s.camera_1}"></video></div>
-      <div><div class="muted">视角 B</div><video controls preload="metadata" src="${s.camera_2}"></video></div>
-    </div>
-    <div class="prompt-box">
-      <div class="muted">动作描述（Prompt）</div>
-      <div>${en}${en && zh ? '<br>' : ''}${zh}</div>
-    </div>
-    <div class="matrix">
-      <table>
-        <thead><tr><th class="rowlabel"></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr></thead>
-        <tbody>
-          ${renderRow('动作自然性', 's1', s.prefill.s1)}
-          ${renderRow('多人互动清晰度', 's2', s.prefill.s2)}
-          ${renderRow('空间合理性与穿插控制', 's3', s.prefill.s3)}
-          ${renderRow('场景契合度', 's4', s.prefill.s4)}
-        </tbody>
-      </table>
-    </div>
-    <div class="avgbox">示例平均分：${avg}</div>
-    ${renderAnalysis(s)}
-    <div class="cta">
-      ${current > 1 ? '<button class="btn" id="prev">上一页</button>' : ''}
-      ${current < pages.length - 1 ? '<button class="btn" id="next">下一页</button>' : ''}
-    </div>
-  `;
+      <h2>${pages[current].title}</h2>
+      <div class="video-grid">
+        <div><div class="muted">视角 A</div><video controls preload="metadata" src="${s.camera_1}"></video></div>
+        <div><div class="muted">视角 B</div><video controls preload="metadata" src="${s.camera_2}"></video></div>
+      </div>
+      <div class="prompt-box">
+        <div class="muted">动作描述（Prompt）</div>
+        <div>${en}${en && zh ? '<br>' : ''}${zh}</div>
+      </div>
+      <div class="matrix">
+        <table>
+          <thead><tr><th class="rowlabel"></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr></thead>
+          <tbody>
+            ${renderRow('动作自然性', 's1', s.prefill.s1)}
+            ${renderRow('多人互动清晰度', 's2', s.prefill.s2)}
+            ${renderRow('空间合理性与穿插控制', 's3', s.prefill.s3)}
+            ${renderRow('场景契合度', 's4', s.prefill.s4)}
+          </tbody>
+        </table>
+      </div>
+      <div class="avgbox">示例平均分：${avg}</div>
+      ${renderAnalysis(s)}
+      <div class="cta">
+        ${current > 0 ? '<button class="btn" id="prev">上一页</button>' : ''}
+        ${current < pages.length - 1 ? '<button class="btn" id="next">下一页</button>' : ''}
+      </div>
+    `;
             const prev = document.getElementById('prev');
             const next = document.getElementById('next');
             if (prev) prev.addEventListener('click', () => load(current - 1));
             if (next) next.addEventListener('click', () => load(current + 1));
         }
 
-
-        // —— 共识测试：说明页 —— //
+        // —— 共识测试：说明 —— //
         function renderConsensusIntro() {
             els.main.innerHTML = `
       <h2>共识测试说明</h2>
-      <p class="muted">请先完成以下 <strong>${consensus.length}</strong> 道共识测试题，这些题目对所有志愿者一致。每个题目完成后，请你点击保存当前评分，成功保存的题目左侧菜单栏会显示绿色表示完成。完成所有测试后请在“下载共识测试数据”页导出下载你的 CSV 文件并妥善保存，再进入正式评分。</p>
-      <div class="cta">
-        <button class="btn" id="goFirst">开始共识测试</button>
-      </div>
+      <p class="muted">请先完成以下 <strong>${consensus.length}</strong> 道共识测试题（含 3 道重复题用于一致性评估）。每题完成后请点击“保存当前评分”；左侧目录会以绿色标记完成。完成所有测试后，请在“下载共识测试数据”页导出 CSV 并妥善保存，再进入正式评分。</p>
+      <div class="cta"><button class="btn" id="goFirst">开始共识测试</button></div>
     `;
             document.getElementById('goFirst').addEventListener('click', () => {
                 const first = pages.findIndex(p => p.type === 'cons_task');
@@ -589,11 +515,12 @@
             });
         }
 
-        // —— 共识测试：单题页（与正式评分布局一致，但仅存本地，不导出到正式CSV）—— //
+        // —— 共识测试：单题页 —— //
         function renderConsensusTask(idxInConsensus) {
             const s = consensus[idxInConsensus];
             const bi = prompts[s.prompt_id] || {};
             const en = bi.en || '', zh = bi.zh || '';
+            const key = consKeyByIndex(idxInConsensus);
 
             els.main.innerHTML = `
       <h2>${pages[current].title}</h2>
@@ -611,9 +538,7 @@
           <thead><tr><th class="rowlabel"></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr></thead>
           <tbody>
             ${[['动作自然性', 's1'], ['多人互动清晰度', 's2'], ['空间合理性与穿插控制', 's3'], ['场景契合度', 's4']]
-                .map(([label, name]) => `<tr><td class="rowlabel">${label}</td>
-                  ${[1, 2, 3, 4, 5].map(v => `<td><input type="radio" name="${name}" value="${v}"></td>`).join('')}
-                </tr>`).join('')}
+                .map(([label, name]) => `<tr><td class="rowlabel">${label}</td>${[1, 2, 3, 4, 5].map(v => `<td><input type="radio" name="${name}" value="${v}"></td>`).join('')}</tr>`).join('')}
           </tbody>
         </table>
       </div>
@@ -644,7 +569,7 @@
             els.main.querySelectorAll('input[type="radio"]').forEach(r => r.addEventListener('change', calcAvg));
 
             // 恢复该题已保存
-            const prev = consResults.get(s.video_id);
+            const prev = consResults.get(key);
             if (prev) {
                 setSel('s1', prev.s1);
                 setSel('s2', prev.s2);
@@ -662,14 +587,21 @@
                 }
                 const avg = Number(els.main.querySelector('#cavg').textContent);
                 const saved_at = new Date().toISOString();
-                consResults.set(s.video_id, {video_id: s.video_id, s1, s2, s3, s4, avg, saved_at});
+
+                const record = {
+                    key,
+                    cons_index: idxInConsensus + 1, // 1-based 题号
+                    video_id: s.video_id,
+                    repeat_of: s.repeat_of || '',   // 若为重复题则有值
+                    s1, s2, s3, s4, avg, saved_at
+                };
+                consResults.set(key, record);
 
                 // 本地续存（跨重启）
                 const obj = {};
                 for (const [k, v] of consResults.entries()) obj[k] = v;
                 localStorage.setItem(CONS_KEY, JSON.stringify(obj));
 
-                // 按钮反馈 + 左侧目录着色 + 顶部进度
                 const btn = els.main.querySelector('#save');
                 btn.textContent = '已保存 ✓';
                 setTimeout(() => btn.textContent = '保存当前评分', 800);
@@ -683,35 +615,35 @@
             if (nextBtn) nextBtn.addEventListener('click', () => load(current + 1));
         }
 
-        // —— 共识测试：导出页（下载 CSV 后再进入正式评分）—— //
+        // —— 共识测试：导出页 —— //
         function renderConsensusExport() {
+            const doneCount = consensus.reduce((acc, _, i) => acc + (consResults.has(consKeyByIndex(i)) ? 1 : 0), 0);
             els.main.innerHTML = `
-    <h2>共识测试完成</h2>
-    <p class="muted">你已完成共识测试：<strong>${consResults.size}/${consensus.length}</strong>。请点击下方按钮导出并保存你的共识测试评分 CSV 文件，然后进入正式评分（新窗口）。</p>
-    <div class="cta">
-      <button class="btn" id="prev">上一页</button>
-      <button class="btn" id="exportCons">导出共识测试 CSV</button>
-      <button class="btn" id="next">下一页</button>
-    </div>
-  `;
+      <h2>共识测试完成</h2>
+      <p class="muted">你已完成共识测试：<strong>${doneCount}/${consensus.length}</strong>。请点击下方按钮导出并保存你的共识测试评分 CSV 文件，然后进入正式评分（新窗口）。</p>
+      <div class="cta">
+        <button class="btn" id="prev">上一页</button>
+        <button class="btn" id="exportCons">导出共识测试 CSV</button>
+        <button class="btn" id="next">下一页</button>
+        <a class="btn" target="_blank" href="index.html?user=${encodeURIComponent(user)}">打开正式评分（新窗口）</a>
+      </div>
+    `;
 
-            // 按钮绑定
             document.getElementById('exportCons').addEventListener('click', () => {
-                if (consResults.size < consensus.length) {
-                    const missing = [];
-                    const byId = new Map(consensus.map((t, idx) => [t.video_id, idx + 1]));
-                    for (const t of consensus) {
-                        if (!consResults.has(t.video_id)) missing.push(byId.get(t.video_id));
-                        if (missing.length >= 10) break;
-                    }
-                    alert(`还有 ${consensus.length - consResults.size} 道未评分（示例题号）：\n` + missing.join(', '));
+                const missing = [];
+                for (let i = 0; i < consensus.length; i++) {
+                    if (!consResults.has(consKeyByIndex(i))) missing.push(i + 1);
+                }
+                if (missing.length) {
+                    alert(`还有 ${missing.length} 道未评分（示例题号）：\n` + missing.slice(0, 10).join(', '));
                     return;
                 }
-                const header = ['user', 'video_id', 's1', 's2', 's3', 's4', 'avg'];
+                const header = ['user', 'cons_index', 'video_id', 'repeat_of', 's1', 's2', 's3', 's4', 'avg'];
                 const rows = [header.join(',')];
-                for (const t of consensus) {
-                    const r = consResults.get(t.video_id);
-                    rows.push([user, r.video_id, r.s1, r.s2, r.s3, r.s4, r.avg].join(','));
+                for (let i = 0; i < consensus.length; i++) {
+                    const k = consKeyByIndex(i);
+                    const r = consResults.get(k);
+                    rows.push([user, r.cons_index, r.video_id, r.repeat_of || '', r.s1, r.s2, r.s3, r.s4, r.avg].join(','));
                 }
                 const blob = new Blob([rows.join('\n')], {type: 'text/csv;charset=utf-8;'});
                 const a = document.createElement('a');
@@ -726,8 +658,7 @@
             document.getElementById('next').addEventListener('click', () => load(current + 1));
         }
 
-
-        // —— 最后一页：开始正式评分 —— //
+        // —— 最后一页 —— //
         function renderStart() {
             els.main.innerHTML = `
       <h2>培训完成</h2>
@@ -749,14 +680,14 @@
             if (p.type === 'welcome') renderWelcome();
             else if (p.type === 'standard') renderStandard();
             else if (p.type === 'notice') renderNotice();
-            else if (p.type === 'sample') renderSample(current - 1); // 样例从索引0开始
+            else if (p.type === 'sample') renderSample(p.idx);          // ★ 用显式 idx，避免 current 偏移
             else if (p.type === 'cons_intro') renderConsensusIntro();
             else if (p.type === 'cons_task') renderConsensusTask(p.idx);
             else if (p.type === 'cons_export') renderConsensusExport();
             else if (p.type === 'start') renderStart();
         }
 
-        // —— 加载数据：示例、prompt 双语、固定的共识题清单 —— //
+        // —— 加载数据：示例/双语 prompt/共识清单 —— //
         Promise.all([
             fetch('data/training_samples.json', {cache: 'no-store'}).then(r => r.json()),
             fetch('data/prompts_bi.json', {cache: 'no-store'}).then(r => r.json()).catch(() => ({})),
@@ -766,20 +697,27 @@
             prompts = pmap || {};
             consensus = cons || [];
 
-            // 恢复共识本地存档
+            // 动态把“示例页”加入目录（按 JSON 数量）
+            samples.forEach((_, i) => pages.push({type: 'sample', title: `示例 ${i + 1}`, idx: i}));
+
+            // 恢复共识本地存档（兼容老版本）
             try {
                 const raw = localStorage.getItem(CONS_KEY);
                 if (raw) {
                     const obj = JSON.parse(raw);
-                    Object.values(obj).forEach(r => consResults.set(r.video_id, r));
+                    Object.values(obj).forEach(r => {
+                        const k = r.key || null;
+                        if (k) consResults.set(k, r); // 新版：带 key
+                        // 旧版（仅 video_id）不做迁移，避免重复题错配；让用户重新保存重复题即可
+                    });
                 }
             } catch (e) {
                 console.warn('consensus localStorage 恢复失败', e);
             }
 
-            // 在“示例”之后依次追加：共识说明 -> N个共识题 -> 共识导出 -> 开始正式评分
+            // 再追加：共识说明 -> N道共识题 -> 下载导出 -> 开始正式评分
             pages.push({type: 'cons_intro', title: '共识测试说明'});
-            consensus.forEach((item, idx) => pages.push({type: 'cons_task', title: `共识测试 ${idx + 1}`, idx}));
+            consensus.forEach((_, idx) => pages.push({type: 'cons_task', title: `共识测试 ${idx + 1}`, idx}));
             pages.push({type: 'cons_export', title: '下载共识测试数据'});
             pages.push({type: 'start', title: '开始正式评分'});
 
@@ -792,5 +730,7 @@
 
     })();
 </script>
+
 </body>
 </html>
+
