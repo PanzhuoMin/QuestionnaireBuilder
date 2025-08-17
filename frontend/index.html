@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    <title>多人动作评分系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            margin: 16px;
+        }
+
+        .wrap {
+            /* 去掉 max-width，页面可以更宽 */
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .meta {
+            color: #666;
+            margin-bottom: 16px;
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns:1fr 1fr;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+            background: #000;
+        }
+
+        .prompt-box {
+            background: #fafafa;
+            border: 1px solid #eee;
+            padding: 12px;
+            margin: 12px 0 18px;
+            white-space: pre-wrap;
+        }
+
+        .matrix {
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .matrix table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .matrix th, .matrix td {
+            border-bottom: 1px solid #eee;
+            text-align: center;
+            padding: 10px;
+        }
+
+        .matrix tr:last-child td {
+            border-bottom: none;
+        }
+
+        .matrix thead th {
+            background: #f7f7f7;
+            font-weight: 600;
+            color: #444;
+        }
+
+        .rowlabel {
+            text-align: left;
+            width: 220px;
+            color: #444;
+        }
+
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        button {
+            padding: 10px 14px;
+            border: none;
+            background: #222;
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button[disabled] {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #f3f3f3;
+            border-radius: 999px;
+            margin-left: 8px;
+            font-size: 12px;
+            color: #555;
+        }
+
+        .muted {
+            color: #777;
+            font-size: 13px;
+        }
+
+        .avgbox {
+            margin: 8px 0;
+            font-weight: 600;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 160px 1fr; /* 左侧 160px，右侧占满 */
+            gap: 16px;
+        }
+
+        /* 侧边目录 */
+        .sidebar {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .sidebar header {
+            padding: 10px 12px;
+            background: #f7f7f7;
+            font-weight: 600;
+        }
+
+        .sidebar .list {
+            max-height: calc(100vh - 150px);
+            overflow: auto;
+            padding: 8px;
+        }
+
+        .sidebar.open .list {
+            display: block;
+        }
+
+        /* 目录按钮 */
+        .idxbtn {
+            width: 100%;
+            text-align: left;
+            padding: 6px 10px;
+            border: 1px solid #eee;
+            background: #fff;
+            color: #000; /* 字体颜色黑色 */
+            border-radius: 6px;
+            margin: 4px 0;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .idxbtn.done {
+            background: #e9f7ef;
+            border-color: #bfe7cf;
+        }
+
+        .idxbtn.active {
+            outline: 2px solid #222;
+        }
+
+        .progress {
+            font-weight: 600;
+        }
+
+        /* 视频区域 */
+        .video-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+            max-height: 400px; /* 增加视频默认高度 */
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>
+        多人动作评分 <span id="userBadge" class="badge"></span>
+        <a href="training.html?user=<script>document.write(encodeURIComponent(new URLSearchParams(location.search).get('user')||'user_001'))</script>"
+           target="_blank"
+           style="margin-left:10px;font-size:12px;font-weight:normal;">
+            返回查看评分标准与示例
+        </a>
+    </h1>
+    <div class="meta">
+        <span class="progress">进度：<span id="done"></span>/<span id="total"></span>（未评分 <span
+                id="todo"></span>）</span>
+        ｜当前：<span id="pos"></span>/<span id="total2"></span>
+    </div>
+
+    <div class="layout">
+        <!-- 侧边目录 -->
+        <aside class="sidebar" id="sidebar">
+            <header>目录</header>
+            <div class="list" id="idxList"></div>
+        </aside>
+
+        <!-- 右侧主体（你原来的内容放在这里） -->
+        <main>
+            <div class="video-grid">
+                <div>
+                    <div class="muted">视角 A</div>
+                    <video id="v1" controls preload="metadata"></video>
+                </div>
+                <div>
+                    <div class="muted">视角 B</div>
+                    <video id="v2" controls preload="metadata"></video>
+                </div>
+            </div>
+
+            <div class="prompt-box">
+                <div class="muted">动作描述（Prompt）</div>
+                <div id="promptText">加载中…</div>
+            </div>
+
+            <!-- 评分矩阵（保持你的单选 1~5） -->
+            <div class="matrix">
+                <table>
+                    <thead>
+                    <tr>
+                        <th class="rowlabel"></th>
+                        <th>1</th>
+                        <th>2</th>
+                        <th>3</th>
+                        <th>4</th>
+                        <th>5</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr data-row="s1">
+                        <td class="rowlabel">动作自然性</td>
+                        <td><input type="radio" name="s1" value="1"></td>
+                        <td><input type="radio" name="s1" value="2"></td>
+                        <td><input type="radio" name="s1" value="3"></td>
+                        <td><input type="radio" name="s1" value="4"></td>
+                        <td><input type="radio" name="s1" value="5"></td>
+                    </tr>
+                    <tr data-row="s2">
+                        <td class="rowlabel">多人互动清晰度</td>
+                        <td><input type="radio" name="s2" value="1"></td>
+                        <td><input type="radio" name="s2" value="2"></td>
+                        <td><input type="radio" name="s2" value="3"></td>
+                        <td><input type="radio" name="s2" value="4"></td>
+                        <td><input type="radio" name="s2" value="5"></td>
+                    </tr>
+                    <tr data-row="s3">
+                        <td class="rowlabel">空间合理性与穿插控制</td>
+                        <td><input type="radio" name="s3" value="1"></td>
+                        <td><input type="radio" name="s3" value="2"></td>
+                        <td><input type="radio" name="s3" value="3"></td>
+                        <td><input type="radio" name="s3" value="4"></td>
+                        <td><input type="radio" name="s3" value="5"></td>
+                    </tr>
+                    <tr data-row="s4">
+                        <td class="rowlabel">场景契合度</td>
+                        <td><input type="radio" name="s4" value="1"></td>
+                        <td><input type="radio" name="s4" value="2"></td>
+                        <td><input type="radio" name="s4" value="3"></td>
+                        <td><input type="radio" name="s4" value="4"></td>
+                        <td><input type="radio" name="s4" value="5"></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="avgbox">平均分：<span id="avg">—</span></div>
+
+            <div class="nav">
+                <div>
+                    <button id="prevBtn">上一条</button>
+                    <button id="nextBtn">下一条</button>
+                </div>
+                <div>
+                    <button id="saveBtn">保存当前评分</button>
+                    <button id="exportBtn">导出 CSV</button>
+                </div>
+            </div>
+            <p class="muted">提示：保存后可切换上下条；导出 CSV 前会检查是否有未评分项。</p>
+        </main>
+    </div>
+</div>
+
+
+<script>
+    (function () {
+        const params = new URLSearchParams(location.search);
+        const user = params.get('user') || 'user_001';
+        document.getElementById('userBadge').textContent = user;
+
+        const dataUrl = `data/${user}.json`;
+        const promptUrl = `data/prompts_bi.json`; // 若你还是单语，就改回 prompts.json
+        const LS_KEY = `ratings_${user}`;
+
+        const els = {
+            pos: document.getElementById('pos'),
+            total: document.getElementById('total'),
+            total2: document.getElementById('total2'),
+            done: document.getElementById('done'),
+            todo: document.getElementById('todo'),
+            // vid: document.getElementById('vid'),
+            v1: document.getElementById('v1'),
+            v2: document.getElementById('v2'),
+            avg: document.getElementById('avg'),
+            prompt: document.getElementById('promptText'),
+            prevBtn: document.getElementById('prevBtn'),
+            nextBtn: document.getElementById('nextBtn'),
+            saveBtn: document.getElementById('saveBtn'),
+            exportBtn: document.getElementById('exportBtn'),
+            sidebar: document.getElementById('sidebar'),
+            toggleIdx: document.getElementById('toggleIdx'),
+            idxList: document.getElementById('idxList'),
+        };
+
+        let tasks = [];
+        let prompts = {};
+        let i = 0;
+        const results = new Map(); // video_id -> { video_id,s1..s4,avg, saved_at }
+
+        // —— 工具函数 —— //
+        function getSelected(name) {
+            const n = document.querySelector(`input[name="${name}"]:checked`);
+            return n ? Number(n.value) : NaN;
+        }
+
+        function setSelected(name, val) {
+            document.querySelectorAll(`input[name="${name}"]`).forEach(r => r.checked = (Number(r.value) === Number(val)));
+        }
+
+        function clearRow(name) {
+            document.querySelectorAll(`input[name="${name}"]`).forEach(r => r.checked = false);
+        }
+
+        function calcAvg() {
+            const vals = ['s1', 's2', 's3', 's4'].map(getSelected);
+            els.avg.textContent = vals.every(v => !Number.isNaN(v)) ? (vals.reduce((a, b) => a + b, 0) / 4).toFixed(2) : '—';
+        }
+
+        // 监听评分变动
+        document.querySelectorAll('input[name="s1"],input[name="s2"],input[name="s3"],input[name="s4"]')
+            .forEach(r => r.addEventListener('change', calcAvg));
+
+        // 进度显示 + 目录着色
+        function updateProgressAndIndex() {
+            const doneCount = results.size;
+            const total = tasks.length;
+            els.done.textContent = String(doneCount);
+            els.total.textContent = String(total);
+            els.total2.textContent = String(total);
+            els.todo.textContent = String(total - doneCount);
+
+            // 目录按钮状态
+            els.idxList.querySelectorAll('.idxbtn').forEach(btn => {
+                const vid = btn.dataset.vid;
+                btn.classList.toggle('done', results.has(vid));
+                btn.classList.toggle('active', vid === tasks[i].video_id);
+            });
+        }
+
+        // 渲染目录
+        function renderIndex() {
+            const frag = document.createDocumentFragment();
+            tasks.forEach((t, idx) => {
+                const b = document.createElement('button');
+                b.className = 'idxbtn';
+                b.dataset.vid = t.video_id;
+                b.textContent = `${idx + 1}`;
+                b.addEventListener('click', () => load(idx));
+                frag.appendChild(b);
+            });
+            els.idxList.innerHTML = '';
+            els.idxList.appendChild(frag);
+            updateProgressAndIndex();
+        }
+
+        // 折叠目录
+        //els.toggleIdx.addEventListener('click', () => {
+        //els.sidebar.classList.toggle('open');
+        //});
+
+        function load(idx) {
+            i = Math.max(0, Math.min(idx, tasks.length - 1));
+            const item = tasks[i];
+            els.pos.textContent = String(i + 1);
+            //els.vid.textContent = item.video_id;
+            els.v1.src = item.camera_1;
+            els.v2.src = item.camera_2;
+
+            // 渲染 prompt（双语或单语）
+            const promptId = String(item.video_id).split('_')[0];
+            const bi = prompts[promptId];
+            if (bi && (bi.en || bi.zh)) {
+                els.prompt.innerHTML = `${bi.en ? bi.en : ''}${bi.en && bi.zh ? '<br>' : ''}${bi.zh ? bi.zh : ''}`;
+            } else {
+                els.prompt.textContent = '(无描述)';
+            }
+
+            // 恢复评分
+            ['s1', 's2', 's3', 's4'].forEach(clearRow);
+            const prev = results.get(item.video_id);
+            if (prev) {
+                setSelected('s1', prev.s1);
+                setSelected('s2', prev.s2);
+                setSelected('s3', prev.s3);
+                setSelected('s4', prev.s4);
+            }
+            calcAvg();
+
+            els.prevBtn.disabled = (i === 0);
+            els.nextBtn.disabled = (i === tasks.length - 1);
+
+            updateProgressAndIndex();
+        }
+
+        function saveCurrent() {
+            const item = tasks[i];
+            const s1 = getSelected('s1'), s2 = getSelected('s2'), s3 = getSelected('s3'), s4 = getSelected('s4');
+            if ([s1, s2, s3, s4].some(v => Number.isNaN(v))) {
+                alert('请完成4项评分再保存。');
+                return;
+            }
+            const avg = Number(els.avg.textContent);
+            const saved_at = new Date().toISOString();
+            results.set(item.video_id, {video_id: item.video_id, s1, s2, s3, s4, avg, saved_at});
+
+            // —— 本地续存（跨重启保留） —— //
+            const obj = {};
+            for (const [k, v] of results.entries()) obj[k] = v;
+            localStorage.setItem(LS_KEY, JSON.stringify(obj));
+
+            els.saveBtn.textContent = '已保存 ✓';
+            setTimeout(() => els.saveBtn.textContent = '保存当前评分', 800);
+
+            updateProgressAndIndex();
+        }
+
+        function exportCSV() {
+            // 导出前检查：是否有未评分项
+            if (results.size < tasks.length) {
+                const missing = [];
+                for (const t of tasks) {
+                    if (!results.has(t.video_id)) missing.push(t.video_id);
+                    if (missing.length >= 10) break; // 只列前10个提示
+                }
+                const more = tasks.length - results.size - missing.length;
+                let msg = `还有 ${tasks.length - results.size} 条未评分：\n` + missing.join(', ');
+                if (more > 0) msg += `… 等`;
+                alert(msg);
+                return; // 阻止导出；若想允许导出可改为 confirm 决定
+            }
+
+            const header = ['user', 'video_id', 's1', 's2', 's3', 's4', 'avg'];
+            const rows = [header.join(',')];
+
+            for (const t of tasks) {
+                const r = results.get(t.video_id);
+                rows.push([user, r.video_id, r.s1, r.s2, r.s3, r.s4, r.avg].join(','));
+            }
+
+            const blob = new Blob([rows.join('\n')], {type: 'text/csv;charset=utf-8;'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${user}_ratings.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        els.prevBtn.addEventListener('click', () => load(i - 1));
+        els.nextBtn.addEventListener('click', () => load(i + 1));
+        els.saveBtn.addEventListener('click', saveCurrent);
+        els.exportBtn.addEventListener('click', exportCSV);
+
+        Promise.all([
+            fetch(dataUrl, {cache: 'no-store'}).then(r => r.json()),
+            fetch(promptUrl, {cache: 'no-store'}).then(r => r.json()).catch(() => ({})) // 若没有双语就返回空对象
+        ]).then(([list, pmap]) => {
+            tasks = list || [];
+            prompts = pmap || {};
+            if (tasks.length === 0) throw new Error('任务为空');
+
+            // —— 恢复本地续存 —— //
+            try {
+                const raw = localStorage.getItem(LS_KEY);
+                if (raw) {
+                    const obj = JSON.parse(raw);
+                    Object.values(obj).forEach(r => results.set(r.video_id, r));
+                }
+            } catch (e) {
+                console.warn('localStorage 恢复失败', e);
+            }
+
+            renderIndex();
+            load(0);
+        }).catch(err => {
+            alert('加载数据出错：' + err.message);
+            console.error(err);
+        });
+    })();
+</script>
+
+</body>
+</html>
+
