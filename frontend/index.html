@@ -2,83 +2,171 @@
 <html lang="zh">
 <head>
     <meta charset="utf-8">
-    <title>多人动作评分系统</title>
+    <title>多人动作评分系统 · Motion Rating</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+        :root {
+            --bg: #fff;
+            --text: #111;
+            --muted: #666;
+            --line: #eee;
+            --brand: #222;
+            --chip: #f3f3f3;
+            --done-bg: #e9f7ef;
+            --done-bd: #bfe7cf;
+        }
+
         body {
             font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
             margin: 16px;
+            background: var(--bg);
+            color: var(--text);
         }
 
         .wrap {
-            /* 去掉 max-width，页面可以更宽 */
             width: 100%;
             margin: 0 auto;
         }
 
         h1 {
             font-size: 20px;
-            margin-bottom: 8px;
+            margin: 0 0 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap
         }
 
         .meta {
-            color: #666;
-            margin-bottom: 16px;
+            color: var(--muted);
+            margin: 8px 0 16px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: var(--chip);
+            border-radius: 999px;
+            font-size: 12px;
+            color: #555
+        }
+
+        a.link {
+            font-size: 12px;
+            font-weight: normal;
+            margin-left: 2px
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns:160px 1fr;
+            gap: 16px
+        }
+
+        .sidebar {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            overflow: hidden
+        }
+
+        .sidebar header {
+            padding: 10px 12px;
+            background: #f7f7f7;
+            font-weight: 600
+        }
+
+        .sidebar .list {
+            max-height: calc(100vh - 150px);
+            overflow: auto;
+            padding: 8px
+        }
+
+        .idxbtn {
+            width: 100%;
+            text-align: left;
+            padding: 6px 10px;
+            border: 1px solid var(--line);
+            background: #fff;
+            color: #000;
+            border-radius: 6px;
+            margin: 4px 0;
+            cursor: pointer;
+            font-size: 14px
+        }
+
+        .idxbtn.done {
+            background: var(--done-bg);
+            border-color: var(--done-bd)
+        }
+
+        .idxbtn.active {
+            outline: 2px solid var(--brand)
         }
 
         .video-grid {
             display: grid;
             grid-template-columns:1fr 1fr;
             gap: 16px;
-            margin-bottom: 12px;
+            margin-bottom: 12px
         }
 
         video {
             width: 100%;
             height: auto;
-            background: #000;
+            max-height: 400px;
+            background: #000
+        }
+
+        .muted {
+            color: #777;
+            font-size: 13px
         }
 
         .prompt-box {
             background: #fafafa;
-            border: 1px solid #eee;
+            border: 1px solid var(--line);
             padding: 12px;
             margin: 12px 0 18px;
-            white-space: pre-wrap;
+            white-space: pre-wrap
         }
 
         .matrix {
             border: 1px solid #e5e5e5;
             border-radius: 6px;
             overflow: hidden;
-            margin-bottom: 12px;
+            margin-bottom: 12px
         }
 
         .matrix table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: collapse
         }
 
         .matrix th, .matrix td {
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--line);
             text-align: center;
-            padding: 10px;
+            padding: 10px
         }
 
         .matrix tr:last-child td {
-            border-bottom: none;
+            border-bottom: none
         }
 
         .matrix thead th {
             background: #f7f7f7;
             font-weight: 600;
-            color: #444;
+            color: #444
         }
 
         .rowlabel {
             text-align: left;
-            width: 220px;
-            color: #444;
+            width: 260px;
+            color: #444
+        }
+
+        .avgbox {
+            margin: 8px 0;
+            font-weight: 600
         }
 
         .nav {
@@ -86,156 +174,92 @@
             justify-content: space-between;
             gap: 12px;
             margin-top: 12px;
+            flex-wrap: wrap
         }
 
         button {
             padding: 10px 14px;
             border: none;
-            background: #222;
+            background: var(--brand);
             color: #fff;
             border-radius: 6px;
-            cursor: pointer;
+            cursor: pointer
         }
 
         button[disabled] {
             opacity: .5;
-            cursor: not-allowed;
+            cursor: not-allowed
         }
 
-        .badge {
-            display: inline-block;
-            padding: 2px 8px;
-            background: #f3f3f3;
-            border-radius: 999px;
-            margin-left: 8px;
-            font-size: 12px;
-            color: #555;
+        /* 语言切换 */
+        .lang-switch {
+            margin-left: auto;
+            display: flex;
+            gap: 6px;
+            align-items: center
         }
 
-        .muted {
-            color: #777;
-            font-size: 13px;
-        }
-
-        .avgbox {
-            margin: 8px 0;
-            font-weight: 600;
-        }
-
-        .layout {
-            display: grid;
-            grid-template-columns: 160px 1fr; /* 左侧 160px，右侧占满 */
-            gap: 16px;
-        }
-
-        /* 侧边目录 */
-        .sidebar {
-            border: 1px solid #eee;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .sidebar header {
-            padding: 10px 12px;
-            background: #f7f7f7;
-            font-weight: 600;
-        }
-
-        .sidebar .list {
-            max-height: calc(100vh - 150px);
-            overflow: auto;
-            padding: 8px;
-        }
-
-        .sidebar.open .list {
-            display: block;
-        }
-
-        /* 目录按钮 */
-        .idxbtn {
-            width: 100%;
-            text-align: left;
-            padding: 6px 10px;
-            border: 1px solid #eee;
+        .chip {
+            border: 1px solid var(--line);
             background: #fff;
-            color: #000; /* 字体颜色黑色 */
-            border-radius: 6px;
-            margin: 4px 0;
-            cursor: pointer;
-            font-size: 14px;
+            color: #333;
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer
         }
 
-        .idxbtn.done {
-            background: #e9f7ef;
-            border-color: #bfe7cf;
+        .chip.active {
+            background: #222;
+            color: #fff;
+            border-color: #222
         }
 
-        .idxbtn.active {
-            outline: 2px solid #222;
-        }
-
-        .progress {
-            font-weight: 600;
-        }
-
-        /* 视频区域 */
-        .video-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-bottom: 12px;
-        }
-
-        video {
-            width: 100%;
-            height: auto;
-            max-height: 400px; /* 增加视频默认高度 */
-            background: #000;
+        .sub {
+            font-size: 12px;
+            color: #999
         }
     </style>
 </head>
 <body>
 <div class="wrap">
     <h1>
-        多人动作评分 <span id="userBadge" class="badge"></span>
-        <a href="training.html?user=<script>document.write(encodeURIComponent(new URLSearchParams(location.search).get('user')||'user_001'))</script>"
-           target="_blank"
-           style="margin-left:10px;font-size:12px;font-weight:normal;">
-            返回查看评分标准与示例
-        </a>
+        <span id="titleMain">多人动作评分</span>
+        <span id="userBadge" class="badge"></span>
+        <a class="link" id="toTraining" target="_blank">返回查看评分标准与示例</a>
+        <div class="lang-switch" id="langSwitch">
+            <span class="chip" data-lang="zh">中文</span>
+            <span class="chip" data-lang="en">English</span>
+        </div>
     </h1>
-    <div class="meta">
-        <span class="progress">进度：<span id="done"></span>/<span id="total"></span>（未评分 <span
-                id="todo"></span>）</span>
-        ｜当前：<span id="pos"></span>/<span id="total2"></span>
-    </div>
+
+    <div class="meta" id="metaTop"></div>
 
     <div class="layout">
         <!-- 侧边目录 -->
         <aside class="sidebar" id="sidebar">
-            <header>目录</header>
+            <header id="tocHeader">目录</header>
             <div class="list" id="idxList"></div>
         </aside>
 
-        <!-- 右侧主体（你原来的内容放在这里） -->
+        <!-- 主体 -->
         <main>
             <div class="video-grid">
                 <div>
-                    <div class="muted">视角 A</div>
+                    <div class="muted" id="camA">视角 A</div>
                     <video id="v1" controls preload="metadata"></video>
                 </div>
                 <div>
-                    <div class="muted">视角 B</div>
+                    <div class="muted" id="camB">视角 B</div>
                     <video id="v2" controls preload="metadata"></video>
                 </div>
             </div>
 
             <div class="prompt-box">
-                <div class="muted">动作描述（Prompt）</div>
+                <div class="muted" id="promptLabel">动作描述（Prompt）</div>
                 <div id="promptText">加载中…</div>
             </div>
 
-            <!-- 评分矩阵（保持你的单选 1~5） -->
             <div class="matrix">
                 <table>
                     <thead>
@@ -250,7 +274,7 @@
                     </thead>
                     <tbody>
                     <tr data-row="s1">
-                        <td class="rowlabel">动作自然性</td>
+                        <td class="rowlabel" id="rowS1">动作自然性</td>
                         <td><input type="radio" name="s1" value="1"></td>
                         <td><input type="radio" name="s1" value="2"></td>
                         <td><input type="radio" name="s1" value="3"></td>
@@ -258,7 +282,7 @@
                         <td><input type="radio" name="s1" value="5"></td>
                     </tr>
                     <tr data-row="s2">
-                        <td class="rowlabel">多人互动清晰度</td>
+                        <td class="rowlabel" id="rowS2">多人互动清晰度</td>
                         <td><input type="radio" name="s2" value="1"></td>
                         <td><input type="radio" name="s2" value="2"></td>
                         <td><input type="radio" name="s2" value="3"></td>
@@ -266,7 +290,7 @@
                         <td><input type="radio" name="s2" value="5"></td>
                     </tr>
                     <tr data-row="s3">
-                        <td class="rowlabel">空间合理性与穿插控制</td>
+                        <td class="rowlabel" id="rowS3">空间合理性与穿插控制</td>
                         <td><input type="radio" name="s3" value="1"></td>
                         <td><input type="radio" name="s3" value="2"></td>
                         <td><input type="radio" name="s3" value="3"></td>
@@ -274,7 +298,7 @@
                         <td><input type="radio" name="s3" value="5"></td>
                     </tr>
                     <tr data-row="s4">
-                        <td class="rowlabel">场景契合度</td>
+                        <td class="rowlabel" id="rowS4">场景契合度</td>
                         <td><input type="radio" name="s4" value="1"></td>
                         <td><input type="radio" name="s4" value="2"></td>
                         <td><input type="radio" name="s4" value="3"></td>
@@ -285,7 +309,7 @@
                 </table>
             </div>
 
-            <div class="avgbox">平均分：<span id="avg">—</span></div>
+            <div class="avgbox" id="avgBox">平均分：<span id="avg">—</span></div>
 
             <div class="nav">
                 <div>
@@ -297,29 +321,113 @@
                     <button id="exportBtn">导出 CSV</button>
                 </div>
             </div>
-            <p class="muted">提示：保存后可切换上下条；导出 CSV 前会检查是否有未评分项。</p>
+            <p class="muted" id="tipsLine">提示：保存后可切换上下条；导出 CSV 前会检查是否有未评分项。</p>
         </main>
     </div>
 </div>
 
-
 <script>
     (function () {
+        // —— 语言与文案（仅中/英） —— //
+        const Lang = {
+            get() {
+                const cached = localStorage.getItem('ui_lang');
+                if (cached) return cached;
+                const sys = (navigator.language || '').toLowerCase();
+                return sys.startsWith('zh') ? 'zh' : 'en';
+            },
+            set(v) {
+                localStorage.setItem('ui_lang', v);
+            },
+            isZH() {
+                return Lang.get() === 'zh';
+            },
+            isEN() {
+                return Lang.get() === 'en';
+            }
+        };
+
+        const L = {
+            title: {zh: '多人动作评分', en: 'Motion Rating'},
+            toTraining: {zh: '返回查看评分标准与示例', en: 'Open Training & Examples'},
+            metaPrefix: {zh: '进度：', en: 'Progress: '},
+            metaCur: {zh: '当前', en: 'Current'},
+            metaUnrated: {zh: '未评分', en: 'Unrated'},
+            toc: {zh: '目录', en: 'Index'},
+            camA: {zh: '视角 A', en: 'Camera A'},
+            camB: {zh: '视角 B', en: 'Camera B'},
+            promptLabel: {zh: '动作描述（Prompt）', en: 'Prompt Description'},
+            rows: {
+                s1: {zh: '动作自然性', en: 'Motion Naturalness'},
+                s2: {zh: '多人互动清晰度', en: 'Interaction Clarity'},
+                s3: {zh: '空间合理性与穿插控制', en: 'Spatial Plausibility & Penetration'},
+                s4: {zh: '场景契合度', en: 'Scene / Prompt Relevance'}
+            },
+            avg: {zh: '平均分', en: 'Average'},
+            btnPrev: {zh: '上一条', en: 'Previous'},
+            btnNext: {zh: '下一条', en: 'Next'},
+            btnSave: {zh: '保存当前评分', en: 'Save Current Rating'},
+            btnExport: {zh: '导出 CSV', en: 'Export CSV'},
+            tip: {
+                zh: '提示：保存后可切换上下条；导出 CSV 前会检查是否有未评分项。',
+                en: 'Tip: After saving you can navigate; we will check for missing ratings before export.'
+            }
+        };
+
+        function t(zh, en) {
+            return Lang.isZH() ? zh : en;
+        }
+
+        function renderUIStrings(total, idx) {
+            // 标题与训练页链接
+            document.getElementById('titleMain').textContent = t(L.title.zh, L.title.en);
+
+            const params = new URLSearchParams(location.search);
+            const user = params.get('user') || 'user_001';
+            const train = document.getElementById('toTraining');
+            train.href = `training.html?user=${encodeURIComponent(user)}`;
+            train.textContent = t(L.toTraining.zh, L.toTraining.en);
+
+            // 目录与标签
+            document.getElementById('tocHeader').textContent = t(L.toc.zh, L.toc.en);
+            document.getElementById('camA').textContent = t(L.camA.zh, L.camA.en);
+            document.getElementById('camB').textContent = t(L.camB.zh, L.camB.en);
+            document.getElementById('promptLabel').textContent = t(L.promptLabel.zh, L.promptLabel.en);
+
+            // 评分维度
+            document.getElementById('rowS1').textContent = t(L.rows.s1.zh, L.rows.s1.en);
+            document.getElementById('rowS2').textContent = t(L.rows.s2.zh, L.rows.s2.en);
+            document.getElementById('rowS3').textContent = t(L.rows.s3.zh, L.rows.s3.en);
+            document.getElementById('rowS4').textContent = t(L.rows.s4.zh, L.rows.s4.en);
+
+            // 平均分提示 & 按钮文案
+            document.getElementById('avgBox').firstChild.textContent = t(L.avg.zh, L.avg.en) + '：';
+            document.getElementById('prevBtn').textContent = t(L.btnPrev.zh, L.btnPrev.en);
+            document.getElementById('nextBtn').textContent = t(L.btnNext.zh, L.btnNext.en);
+            document.getElementById('saveBtn').textContent = t(L.btnSave.zh, L.btnSave.en);
+            document.getElementById('exportBtn').textContent = t(L.btnExport.zh, L.btnExport.en);
+            document.getElementById('tipsLine').textContent = t(L.tip.zh, L.tip.en);
+
+            // 顶部进度
+            const tot = (typeof total === 'number' ? total : (window.tasks ? tasks.length : 0)) || 0;
+            const cur = (typeof idx === 'number' ? idx : (window.i || 0)) || 0;
+            const done = (typeof results !== 'undefined' && results && typeof results.size === 'number') ? results.size : 0;
+            const todo = Math.max(0, tot - done);
+
+            document.getElementById('metaTop').innerHTML =
+                `${t(L.metaPrefix.zh, L.metaPrefix.en)}<span class="progress"><span id="done">${done}</span>/<span id="total">${tot}</span> (${t(L.metaUnrated.zh, L.metaUnrated.en)} <span id="todo">${todo}</span>)</span> ｜ ${t(L.metaCur.zh, L.metaCur.en)}：<span id="pos">${Math.min(cur + 1, Math.max(1, tot))}</span>/<span id="total2">${tot}</span>`;
+        }
+
+        // —— 业务逻辑 —— //
         const params = new URLSearchParams(location.search);
         const user = params.get('user') || 'user_001';
         document.getElementById('userBadge').textContent = user;
 
         const dataUrl = `data/${user}.json`;
-        const promptUrl = `data/prompts_bi.json`; // 若你还是单语，就改回 prompts.json
+        const promptUrl = `data/prompts_bi.json`;
         const LS_KEY = `ratings_${user}`;
 
         const els = {
-            pos: document.getElementById('pos'),
-            total: document.getElementById('total'),
-            total2: document.getElementById('total2'),
-            done: document.getElementById('done'),
-            todo: document.getElementById('todo'),
-            // vid: document.getElementById('vid'),
             v1: document.getElementById('v1'),
             v2: document.getElementById('v2'),
             avg: document.getElementById('avg'),
@@ -328,17 +436,14 @@
             nextBtn: document.getElementById('nextBtn'),
             saveBtn: document.getElementById('saveBtn'),
             exportBtn: document.getElementById('exportBtn'),
-            sidebar: document.getElementById('sidebar'),
-            toggleIdx: document.getElementById('toggleIdx'),
             idxList: document.getElementById('idxList'),
         };
 
         let tasks = [];
         let prompts = {};
         let i = 0;
-        const results = new Map(); // video_id -> { video_id,s1..s4,avg, saved_at }
+        const results = new Map();
 
-        // —— 工具函数 —— //
         function getSelected(name) {
             const n = document.querySelector(`input[name="${name}"]:checked`);
             return n ? Number(n.value) : NaN;
@@ -357,28 +462,18 @@
             els.avg.textContent = vals.every(v => !Number.isNaN(v)) ? (vals.reduce((a, b) => a + b, 0) / 4).toFixed(2) : '—';
         }
 
-        // 监听评分变动
         document.querySelectorAll('input[name="s1"],input[name="s2"],input[name="s3"],input[name="s4"]')
             .forEach(r => r.addEventListener('change', calcAvg));
 
-        // 进度显示 + 目录着色
         function updateProgressAndIndex() {
-            const doneCount = results.size;
-            const total = tasks.length;
-            els.done.textContent = String(doneCount);
-            els.total.textContent = String(total);
-            els.total2.textContent = String(total);
-            els.todo.textContent = String(total - doneCount);
-
-            // 目录按钮状态
             els.idxList.querySelectorAll('.idxbtn').forEach(btn => {
                 const vid = btn.dataset.vid;
                 btn.classList.toggle('done', results.has(vid));
-                btn.classList.toggle('active', vid === tasks[i].video_id);
+                btn.classList.toggle('active', tasks[i] && (vid === tasks[i].video_id));
             });
+            renderUIStrings(tasks.length, i);
         }
 
-        // 渲染目录
         function renderIndex() {
             const frag = document.createDocumentFragment();
             tasks.forEach((t, idx) => {
@@ -394,26 +489,22 @@
             updateProgressAndIndex();
         }
 
-        // 折叠目录
-        //els.toggleIdx.addEventListener('click', () => {
-        //els.sidebar.classList.toggle('open');
-        //});
-
         function load(idx) {
             i = Math.max(0, Math.min(idx, tasks.length - 1));
             const item = tasks[i];
-            els.pos.textContent = String(i + 1);
-            //els.vid.textContent = item.video_id;
             els.v1.src = item.camera_1;
             els.v2.src = item.camera_2;
 
-            // 渲染 prompt（双语或单语）
+            // ★ Prompt 显示：中文模式=双语（EN 在上，ZH 在下）；英文模式=仅 EN（缺失回退 ZH）
             const promptId = String(item.video_id).split('_')[0];
-            const bi = prompts[promptId];
-            if (bi && (bi.en || bi.zh)) {
-                els.prompt.innerHTML = `${bi.en ? bi.en : ''}${bi.en && bi.zh ? '<br>' : ''}${bi.zh ? bi.zh : ''}`;
+            const biMap = prompts[promptId] || {};
+            const en = biMap.en || '';
+            const zh = biMap.zh || '';
+            if (Lang.isZH()) {
+                if (en && zh) els.prompt.innerHTML = en + '\n' + zh;
+                else els.prompt.innerHTML = en || zh || '(无描述)';
             } else {
-                els.prompt.textContent = '(无描述)';
+                els.prompt.innerHTML = en || zh || '(No description)';
             }
 
             // 恢复评分
@@ -437,47 +528,44 @@
             const item = tasks[i];
             const s1 = getSelected('s1'), s2 = getSelected('s2'), s3 = getSelected('s3'), s4 = getSelected('s4');
             if ([s1, s2, s3, s4].some(v => Number.isNaN(v))) {
-                alert('请完成4项评分再保存。');
+                alert(Lang.isEN() ? 'Please complete all four scores before saving.' : '请完成4项评分再保存。');
                 return;
             }
             const avg = Number(els.avg.textContent);
             const saved_at = new Date().toISOString();
             results.set(item.video_id, {video_id: item.video_id, s1, s2, s3, s4, avg, saved_at});
 
-            // —— 本地续存（跨重启保留） —— //
+            // 本地续存
             const obj = {};
             for (const [k, v] of results.entries()) obj[k] = v;
             localStorage.setItem(LS_KEY, JSON.stringify(obj));
 
-            els.saveBtn.textContent = '已保存 ✓';
-            setTimeout(() => els.saveBtn.textContent = '保存当前评分', 800);
+            els.saveBtn.textContent = Lang.isEN() ? 'Saved ✓' : '已保存 ✓';
+            setTimeout(() => els.saveBtn.textContent = (Lang.isEN() ? L.btnSave.en : L.btnSave.zh), 900);
 
             updateProgressAndIndex();
         }
 
         function exportCSV() {
-            // 导出前检查：是否有未评分项
             if (results.size < tasks.length) {
                 const missing = [];
                 for (const t of tasks) {
                     if (!results.has(t.video_id)) missing.push(t.video_id);
-                    if (missing.length >= 10) break; // 只列前10个提示
+                    if (missing.length >= 10) break;
                 }
-                const more = tasks.length - results.size - missing.length;
-                let msg = `还有 ${tasks.length - results.size} 条未评分：\n` + missing.join(', ');
-                if (more > 0) msg += `… 等`;
+                const remain = tasks.length - results.size - missing.length;
+                const msg = Lang.isEN()
+                    ? `There are ${tasks.length - results.size} unrated items:\n` + missing.join(', ') + (remain > 0 ? ' … etc.' : '')
+                    : `还有 ${tasks.length - results.size} 条未评分：\n` + missing.join(', ') + (remain > 0 ? ' … 等' : '');
                 alert(msg);
-                return; // 阻止导出；若想允许导出可改为 confirm 决定
+                return;
             }
-
             const header = ['user', 'video_id', 's1', 's2', 's3', 's4', 'avg'];
             const rows = [header.join(',')];
-
-            for (const t of tasks) {
-                const r = results.get(t.video_id);
+            for (const tsk of tasks) {
+                const r = results.get(tsk.video_id);
                 rows.push([user, r.video_id, r.s1, r.s2, r.s3, r.s4, r.avg].join(','));
             }
-
             const blob = new Blob([rows.join('\n')], {type: 'text/csv;charset=utf-8;'});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -487,20 +575,39 @@
             a.remove();
         }
 
-        els.prevBtn.addEventListener('click', () => load(i - 1));
-        els.nextBtn.addEventListener('click', () => load(i + 1));
-        els.saveBtn.addEventListener('click', saveCurrent);
-        els.exportBtn.addEventListener('click', exportCSV);
+        // 事件绑定
+        document.getElementById('prevBtn').addEventListener('click', () => load(i - 1));
+        document.getElementById('nextBtn').addEventListener('click', () => load(i + 1));
+        document.getElementById('saveBtn').addEventListener('click', saveCurrent);
+        document.getElementById('exportBtn').addEventListener('click', exportCSV);
 
+        // 语言切换 UI
+        const chips = document.querySelectorAll('.lang-switch .chip');
+
+        function refreshLangChips() {
+            chips.forEach(c => c.classList.toggle('active', c.dataset.lang === Lang.get()));
+        }
+
+        chips.forEach(c => {
+            c.addEventListener('click', () => {
+                Lang.set(c.dataset.lang);
+                refreshLangChips();
+                renderUIStrings(tasks.length, i);
+                if (tasks.length) load(i);
+            });
+        });
+        refreshLangChips();
+
+        // 数据加载
         Promise.all([
-            fetch(dataUrl, {cache: 'no-store'}).then(r => r.json()),
-            fetch(promptUrl, {cache: 'no-store'}).then(r => r.json()).catch(() => ({})) // 若没有双语就返回空对象
+            fetch(`data/${user}.json`, {cache: 'no-store'}).then(r => r.json()),
+            fetch(`data/prompts_bi.json`, {cache: 'no-store'}).then(r => r.json()).catch(() => ({}))
         ]).then(([list, pmap]) => {
             tasks = list || [];
             prompts = pmap || {};
-            if (tasks.length === 0) throw new Error('任务为空');
+            if (!tasks.length) throw new Error(Lang.isEN() ? 'Empty task list' : '任务为空');
 
-            // —— 恢复本地续存 —— //
+            // 恢复本地续存
             try {
                 const raw = localStorage.getItem(LS_KEY);
                 if (raw) {
@@ -512,14 +619,13 @@
             }
 
             renderIndex();
+            renderUIStrings(tasks.length, 0);
             load(0);
         }).catch(err => {
-            alert('加载数据出错：' + err.message);
+            alert((Lang.isEN() ? 'Error loading data: ' : '加载数据出错：') + err.message);
             console.error(err);
         });
     })();
 </script>
-
 </body>
 </html>
-
