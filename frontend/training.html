@@ -206,7 +206,16 @@
 </head>
 <body>
 <div class="wrap">
-    <h1>多人动作评分 · 实验准备</h1>
+    <h1 style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span id="titleI18n">多人动作评分 · 实验准备</span>
+        <div class="lang-switch" id="langSwitch" style="margin-left:auto;display:flex;gap:6px;">
+            <span class="chip" data-lang="zh"
+                  style="border:1px solid #eee;background:#fff;color:#333;border-radius:999px;padding:6px 10px;font-size:12px;cursor:pointer">中文</span>
+            <span class="chip" data-lang="en"
+                  style="border:1px solid #eee;background:#fff;color:#333;border-radius:999px;padding:6px 10px;font-size:12px;cursor:pointer">English</span>
+        </div>
+    </h1>
+
     <div class="meta" id="metaInfo">请先阅读评分标准与注意事项，并阅读 5
         个典型示例；完成后进行共识测试并下载数据，再进入正式评分。
     </div>
@@ -225,60 +234,97 @@
 
 <script>
     (function () {
-        const params = new URLSearchParams(location.search);
-        const user = params.get('user') || 'user_001';
+        // ============ 语言切换（仅中/英） ============
+        const Lang = {
+            get() {
+                const c = localStorage.getItem('ui_lang_train');
+                if (c) return c;
+                const sys = (navigator.language || '').toLowerCase();
+                return sys.startsWith('zh') ? 'zh' : 'en';
+            },
+            set(v) {
+                localStorage.setItem('ui_lang_train', v);
+            },
+            isZH() {
+                return Lang.get() === 'zh';
+            },
+            isEN() {
+                return Lang.get() === 'en';
+            }
+        };
+        const T = (obj) => Lang.isZH() ? obj.zh : obj.en;
 
-        // 先只放固定页，示例页与共识页等数据加载后再动态追加
-        const pages = [
-            {type: 'welcome', title: '欢迎'},
-            {type: 'standard', title: '评分标准表'},
-            {type: 'notice', title: '注意事项'}
-        ];
+        // 顶部标题 & 语言按钮初始化（不改你原有样式）
+        function initLangSwitch() {
+            const titleEl = document.getElementById('titleI18n') || document.querySelector('h1 span, h1');
+            if (titleEl) titleEl.textContent = T({zh: '多人动作评分 · 实验准备', en: 'Motion Rating · Training'});
+            const chips = document.querySelectorAll('#langSwitch .chip');
+            const refresh = () => chips.forEach(c => c.classList.toggle('active', c.dataset.lang === Lang.get()));
+            chips.forEach(c => c.addEventListener('click', () => {
+                Lang.set(c.dataset.lang);
+                refresh();
+                if (titleEl) titleEl.textContent = T({zh: '多人动作评分 · 实验准备', en: 'Motion Rating · Training'});
+                document.getElementById('tocHeader') && (document.getElementById('tocHeader').textContent = T({
+                    zh: '培训目录',
+                    en: 'Contents'
+                }));
+                renderIndex();
+                load(current);
+            }));
+            refresh();
+        }
 
+        // ============ 全局元素引用 ============
         const els = {
             idxList: document.getElementById('idxList'),
             main: document.getElementById('main'),
-            meta: document.getElementById('metaInfo')
+            meta: document.getElementById('metaInfo'),
+            tocHeader: document.getElementById('tocHeader')
         };
+        els.tocHeader && (els.tocHeader.textContent = T({zh: '培训目录', en: 'Contents'}));
 
+        // URL 参数（user）
+        const params = new URLSearchParams(location.search);
+        const user = params.get('user') || 'user_001';
+
+        // ============ 页签定义（示例/共识部分会在数据加载后 append） ============
+        const pages = [
+            {type: 'welcome', title_zh: '欢迎', title_en: 'Welcome'},
+            {type: 'standard', title_zh: '评分标准表', title_en: 'Scoring Standards'},
+            {type: 'notice', title_zh: '注意事项', title_en: 'Notes'}
+        ];
+        let current = 0;
+
+        // 训练示例、Prompt 映射、共识测试集合
         let samples = [];   // data/training_samples.json
         let prompts = {};   // data/prompts_bi.json
         let consensus = []; // data/consensus_test.json
 
-        let current = 0;
-
-        // —— 共识测试评分：本地续存（跨重启不丢）——
+        // ============ 共识测试存档 ============
         const CONS_KEY = `consensus_${user}`;
-        // 新逻辑：以“唯一 key（video_id#index）”为键，避免重复题覆盖
-        const consResults = new Map(); // key -> {key,cons_index,video_id,repeat_of,s1..s4,avg,saved_at}
-        function consKeyByIndex(i) {
-            const t = consensus[i];
-            return `${t.video_id}#${i}`;
-        }
+        const consResults = new Map(); // key: `${video_id}#${index}`
+        const consKeyByIndex = (i) => `${consensus[i].video_id}#${i}`;
 
-        // —— 侧边目录 —— //
+        // ============ 侧边目录渲染 ============
         function renderIndex() {
-            const frag = document.createDocumentFragment();
+            const f = document.createDocumentFragment();
             pages.forEach((p, idx) => {
                 const b = document.createElement('button');
                 b.className = 'idxbtn' + (idx === current ? ' active' : '');
-                b.textContent = `${idx + 1}. ${p.title}`;
-
-                // 共识题完成着色
+                b.textContent = `${idx + 1}. ${T({zh: p.title_zh, en: p.title_en})}`;
                 if (p.type === 'cons_task') {
                     const k = consKeyByIndex(p.idx);
                     if (consResults.has(k)) b.classList.add('done');
                 }
-
                 b.addEventListener('click', () => load(idx));
-                frag.appendChild(b);
+                f.appendChild(b);
             });
             els.idxList.innerHTML = '';
-            els.idxList.appendChild(frag);
+            els.idxList.appendChild(f);
         }
 
-        function setActive(idx) {
-            els.idxList.querySelectorAll('.idxbtn').forEach((b, i) => b.classList.toggle('active', i === idx));
+        function setActive(i) {
+            els.idxList.querySelectorAll('.idxbtn').forEach((b, idx) => b.classList.toggle('active', idx === i));
         }
 
         function updateIndexDoneStates() {
@@ -291,274 +337,492 @@
             });
         }
 
-        // —— 顶部进度提示 —— //
+        // ============ 顶部提示（进度/引导） ============
         function updateMeta() {
             const p = pages[current];
             if (p.type === 'cons_task' || p.type === 'cons_intro' || p.type === 'cons_export') {
-                const doneCount = consensus.reduce((acc, _, i) => acc + (consResults.has(consKeyByIndex(i)) ? 1 : 0), 0);
-                els.meta.innerHTML = `共识测试进度：<strong>${doneCount}/${consensus.length}</strong>（已完成/总数）。`;
+                const done = consensus.reduce((acc, _, i) => acc + (consResults.has(consKeyByIndex(i)) ? 1 : 0), 0);
+                els.meta.innerHTML = T({
+                    zh: `共识测试进度：<strong>${done}/${consensus.length}</strong>（已完成/总数）。`,
+                    en: `Consensus progress: <strong>${done}/${consensus.length}</strong> (done/total).`
+                });
             } else {
-                els.meta.textContent = `请先阅读评分标准与注意事项，并阅读 ${samples.length || '若干'} 个典型示例；完成后进行共识测试并下载数据，再进入正式评分。`;
+                els.meta.innerHTML = T({
+                    zh: `请先阅读评分标准与注意事项，并阅读 ${samples.length || '若干'} 个典型示例；完成后进行共识测试并下载数据，再进入正式评分。`,
+                    en: `Please read the scoring standards and notes, review ${samples.length || 'several'} examples, then complete the consensus test and download the CSV before starting the main evaluation.`
+                });
             }
         }
 
-        // —— 欢迎页 —— //
+        // ============ 页面渲染 ============
+        // 欢迎页（保留中文内容语义 + 英文等义）
         function renderWelcome() {
             els.main.innerHTML = `
-      <h2>欢迎参加「多人动作评分」实验</h2>
-      <p>感谢你参与本次研究！本实验旨在评估与改进多人动作生成模型的感知质量。目标是让模型生成的动作更自然、更流畅且更符合人类直觉与生理常识，尤其是在多人互动场景中的配合与空间合理性。</p>
+      <h2>${T({zh: '欢迎参加「多人动作评分」实验', en: 'Welcome to the Motion Rating Experiment'})}</h2>
+      <p>${T({
+                zh: '感谢你参与本次研究！本实验旨在评估与改进多人动作生成模型的感知质量。目标是让模型生成的动作更自然、更流畅且更符合人类直觉与生理常识，尤其是在多人互动场景中的配合与空间合理性。',
+                en: 'Thank you for participating! This study evaluates and improves the perceptual quality of multi-person motion generation—aiming for motions that are natural, smooth, and aligned with human intuition and biomechanics, especially interaction and spatial plausibility.'
+            })}</p>
 
-      <h3>实验流程</h3>
+      <h3>${T({zh: '实验流程', en: 'Workflow'})}</h3>
       <ol>
-        <li><strong>评分标准表：</strong>先了解四个评分维度及其 1–5 分的定义。</li>
-        <li><strong>注意事项：</strong>了解保存方式、浏览器要求与数据备份。</li>
-        <li><strong>示例学习：</strong>观看${samples.length || '若干'}个示例（双视角），对照示例评分与解析，快速熟悉标准。</li>
-        <li><strong>共识测试：</strong>完成统一的 19 道共识测试（含重复题），并下载保存 CSV 结果。</li>
-        <li><strong>正式评分：</strong>进入正式任务，对分配给你的动作样本进行评分并导出 CSV。</li>
+        <li><strong>${T({
+                zh: '评分标准表：',
+                en: 'Scoring Standards:'
+            })}</strong>${T({
+                zh: '先了解四个评分维度及其 1–5 分的定义。',
+                en: 'Learn the four dimensions and their 1–5 scales.'
+            })}</li>
+        <li><strong>${T({zh: '注意事项：', en: 'Notes:'})}</strong>${T({
+                zh: '了解保存方式、浏览器要求与数据备份。',
+                en: 'Understand saving behavior, browser requirements, and data backup.'
+            })}</li>
+        <li><strong>${T({
+                zh: '示例学习：',
+                en: 'Examples:'
+            })}</strong>${T({
+                zh: `观看 ${samples.length || '若干'} 个示例（双视角），对照示例评分与解析，快速熟悉标准。`,
+                en: `Review ${samples.length || 'several'} examples (two camera views) with sample ratings and explanations.`
+            })}</li>
+        <li><strong>${T({
+                zh: '共识测试：',
+                en: 'Consensus Test:'
+            })}</strong>${T({
+                zh: '完成统一的 19 道共识测试（含重复题），并下载保存 CSV 结果。',
+                en: 'Complete 19 shared tasks (with repeats) and download your CSV results.'
+            })}</li>
+        <li><strong>${T({
+                zh: '正式评分：',
+                en: 'Main Evaluation:'
+            })}</strong>${T({
+                zh: '进入正式任务，对分配给你的动作样本进行评分并导出 CSV。',
+                en: 'Proceed to the main tasks, rate your assigned samples, and export the CSV.'
+            })}</li>
       </ol>
 
-      <h3>我们的研究与数据集贡献</h3>
-      <p>现有自动指标与人类感知并不完全一致，难以全面反映动作质量。本研究通过大规模人类感知反馈建立数据集，并训练<strong>人感知对齐的动作评论模型（MotionCritic）</strong>，使其作为更符合人类判断的质量度量，并可用作生成模型的轻量监督信号，以提升生成质量。你的评分将直接帮助我们构建<strong>多人动作</strong>的感知数据，为未来的动作生成研究与评测提供更可靠的参考。</p>
+      <h3>${T({zh: '我们的研究与数据集贡献', en: 'Our Research & Dataset Contribution'})}</h3>
+      <p>${T({
+                zh: '现有自动指标与人类感知并不完全一致，难以全面反映动作质量。本研究通过大规模人类感知反馈建立数据集，并训练人感知对齐的动作评论模型（MotionCritic），使其作为更符合人类判断的质量度量，并可用作生成模型的轻量监督信号，以提升生成质量。你的评分将直接帮助我们构建多人动作的感知数据，为未来的动作生成研究与评测提供更可靠的参考。',
+                en: 'Current automatic metrics don’t fully align with human perception. We collect large-scale human feedback and train a perception-aligned MotionCritic to better reflect human judgment and guide generation. Your ratings help build a multi-person motion perception dataset for more reliable future research and evaluation.'
+            })}</p>
 
-      <p><em>再次感谢你的参与！你的认真评分将帮助学界更准确地评价和改进动作生成模型。</em></p>
+      <p><em>${T({
+                zh: '再次感谢你的参与！你的认真评分将帮助学界更准确地评价和改进动作生成模型。',
+                en: 'Thank you again! Your careful ratings will help the community better assess and improve motion generation models.'
+            })}</em></p>
 
       <div class="cta">
-        <button class="btn" id="toNext">下一页：评分标准表</button>
-      </div>
-    `;
+        <button class="btn" id="toNext">${T({zh: '下一页：评分标准表', en: 'Next: Scoring Standards'})}</button>
+      </div>`;
             document.getElementById('toNext').addEventListener('click', () => load(current + 1));
         }
 
-        // —— 评分标准表（含维度解释） —— //
+        // 评分标准表（含详细解释）
         function renderStandard() {
             els.main.innerHTML = `
-      <h2>评分标准表</h2>
+      <h2>${T({zh: '评分标准表', en: 'Scoring Standards'})}</h2>
       <table class="std-table">
         <thead>
-          <tr><th>评分维度</th><th>1 分</th><th>2 分</th><th>3 分</th><th>4 分</th><th>5 分</th></tr>
+          <tr><th>${T({zh: '评分维度', en: 'Dimension'})}</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr>
         </thead>
         <tbody>
           <tr>
-            <td>动作自然性 <span class="std-ename">Motion Naturalness</span></td>
-            <td>明显不自然、断裂/跳变、严重抖动（像机器人）。</td>
-            <td>局部僵硬、过渡不连贯，偶有异常姿势。</td>
-            <td>整体尚自然，轻微不协调可接受。</td>
-            <td>流畅协调，基本符合生理逻辑。</td>
-            <td>极度自然、连续平滑、细节丰富。</td>
+            <td>${T({zh: '动作自然性', en: 'Motion Naturalness'})} <span class="std-ename">(Motion Naturalness)</span></td>
+            <td>${T({
+                zh: '明显不自然、断裂/跳变、严重抖动（像机器人）。',
+                en: 'Highly unnatural; discontinuities/jumps; severe jitter (robotic).'
+            })}</td>
+            <td>${T({
+                zh: '局部僵硬、过渡不连贯，偶有异常姿势。',
+                en: 'Local stiffness; incoherent transitions; occasional odd postures.'
+            })}</td>
+            <td>${T({
+                zh: '整体尚自然，轻微不协调可接受。',
+                en: 'Mostly natural overall; minor inconsistencies acceptable.'
+            })}</td>
+            <td>${T({
+                zh: '流畅协调，基本符合生理逻辑。',
+                en: 'Smooth and coordinated; largely biomechanically plausible.'
+            })}</td>
+            <td>${T({zh: '极度自然、连续平滑、细节丰富。', en: 'Very natural, continuous, and detailed.'})}</td>
           </tr>
           <tr>
-            <td>多人互动清晰度 <span class="std-ename">Interaction Clarity</span></td>
-            <td>几乎无互动或互动模糊，意图不可辨。</td>
-            <td>有互动迹象但配合不足，目标模糊。</td>
-            <td>互动结构可辨，部分回应不到位。</td>
-            <td>互动明确、配合良好，有因果链。</td>
-            <td>高度清晰、连贯，回应紧密。</td>
+            <td>${T({zh: '多人互动清晰度', en: 'Interaction Clarity'})} <span class="std-ename">(Interaction Clarity)</span></td>
+            <td>${T({
+                zh: '几乎无互动或互动模糊，意图不可辨。',
+                en: 'Little or unclear interaction; intentions indistinct.'
+            })}</td>
+            <td>${T({
+                zh: '有互动迹象但配合不足，目标模糊。',
+                en: 'Signs of interaction but weak coordination; vague goals.'
+            })}</td>
+            <td>${T({zh: '互动结构可辨，部分回应不到位。', en: 'Recognizable structure; some responses missing.'})}</td>
+            <td>${T({
+                zh: '互动明确、配合良好，有因果链。',
+                en: 'Clear interaction; good coordination; causal links present.'
+            })}</td>
+            <td>${T({zh: '高度清晰、连贯，回应紧密。', en: 'Highly clear and coherent; tightly coupled responses.'})}</td>
           </tr>
           <tr>
-            <td>空间合理性与穿插控制 <span class="std-ename">Spatial Plausibility & Penetration</span></td>
-            <td>多次明显穿插/重叠/错位。</td>
-            <td>偶有穿插，站位常不合理。</td>
-            <td>少量穿插（多见复杂动作），整体可接受。</td>
-            <td>空间自然、距离恰当，无明显穿插。</td>
-            <td>完全无穿插，空间布局精准自然。</td>
+            <td>${T({zh: '空间合理性与穿插控制', en: 'Spatial Plausibility & Penetration'})} <span class="std-ename">(Spatial Plausibility & Penetration)</span></td>
+            <td>${T({zh: '多次明显穿插/重叠/错位。', en: 'Frequent intersections/overlaps/misplacements.'})}</td>
+            <td>${T({zh: '偶有穿插，站位常不合理。', en: 'Occasional intersection; often awkward positioning.'})}</td>
+            <td>${T({
+                zh: '少量穿插（多见复杂动作），整体可接受。',
+                en: 'Minor intersections (often in complex moves), overall acceptable.'
+            })}</td>
+            <td>${T({
+                zh: '空间自然、距离恰当，无明显穿插。',
+                en: 'Natural spacing and distance; no obvious intersection.'
+            })}</td>
+            <td>${T({zh: '完全无穿插，空间布局精准自然。', en: 'No intersection; precise and natural spatial layout.'})}</td>
           </tr>
           <tr>
-            <td>场景契合度 <span class="std-ename">Scene / Prompt Relevance</span></td>
-            <td>与描述严重不符，语义缺失明显。</td>
-            <td>部分契合但总体偏离主题。</td>
-            <td>大致符合，关键点不够到位。</td>
-            <td>高度一致，语义清晰到位。</td>
-            <td>精确匹配且富有节奏/情绪张力。</td>
+            <td>${T({zh: '场景契合度', en: 'Scene / Prompt Relevance'})} <span class="std-ename">(Scene / Prompt Relevance)</span></td>
+            <td>${T({
+                zh: '与描述严重不符，语义缺失明显。',
+                en: 'Severely mismatched to the description; major semantic gaps.'
+            })}</td>
+            <td>${T({zh: '部分契合但总体偏离主题。', en: 'Partially relevant but mostly off-topic.'})}</td>
+            <td>${T({zh: '大致符合，关键点不够到位。', en: 'Roughly matches with key elements missing.'})}</td>
+            <td>${T({zh: '高度一致，语义清晰到位。', en: 'Highly consistent with clear semantics.'})}</td>
+            <td>${T({zh: '精确匹配且富有节奏/情绪张力。', en: 'Precisely matched with rhythm/tension.'})}</td>
           </tr>
         </tbody>
       </table>
 
       <div class="analysis-box" style="margin-top:16px">
-        <h3>评分维度详细解释(仅供参考)</h3>
+        <h3>${T({zh: '评分维度详细解释(仅供参考)', en: 'Detailed Notes on Each Dimension (for reference)'})}</h3>
 
-        <h4>1) 动作自然性（评价动作本身的生物学合理性与流畅性）</h4>
+        <h4>1) ${T({
+                zh: '动作自然性（评价动作本身的生物学合理性与流畅性）',
+                en: 'Motion Naturalness (biomechanical plausibility and smoothness)'
+            })}</h4>
         <ul>
-          <li><strong>看点：</strong>是否“有意图的运动”；关节转动是否合逻辑；过渡是否平滑。</li>
-          <li><strong>常见扣分：</strong>断裂/突然跳变；严重抖动（头部轻微抖动可宽容）；僵硬像木偶；脚步平移无屈膝；随机挥舞。</li>
-          <li><strong>加分线索：</strong>连贯顺滑、姿势自然；手臂随动/转头等细节；整体接近真人演示。</li>
-          <li><strong>注意：</strong>根据不自然程度来判断，例如轻微抖动可只降 1 分。</li>
+          <li><strong>${T({
+                zh: '看点',
+                en: 'What to look for'
+            })}：</strong>${T({
+                zh: '是否“有意图的运动”；关节转动是否合逻辑；过渡是否平滑。',
+                en: 'Intentional movement; logical joint rotations; smooth transitions.'
+            })}</li>
+          <li><strong>${T({
+                zh: '常见扣分',
+                en: 'Typical deductions'
+            })}：</strong>${T({
+                zh: '断裂/突然跳变；严重抖动（头部轻微抖动可宽容）；僵硬像木偶；脚步平移无屈膝；随机挥舞。',
+                en: 'Discontinuities/jumps; severe jitter (mild head jitter tolerable); puppet-like stiffness; sliding without knee flexion; random flailing.'
+            })}</li>
+          <li><strong>${T({
+                zh: '加分线索',
+                en: 'Positive cues'
+            })}：</strong>${T({
+                zh: '连贯顺滑、姿势自然；手臂随动/转头等细节；整体接近真人演示。',
+                en: 'Coherent and smooth; natural poses; subtle follow-through (arms/head turns); overall human-like.'
+            })}</li>
+          <li><strong>${T({zh: '注意', en: 'Note'})}：</strong>${T({
+                zh: '按不自然程度判断，例如轻微抖动可只降 1 分。',
+                en: 'Judge by severity; e.g., slight jitter may reduce only 1 point.'
+            })}</li>
         </ul>
 
-        <h4>2) 多人互动清晰度（是否能看出明确互动或良好区分）</h4>
+        <h4>2) ${T({
+                zh: '多人互动清晰度（是否能看出明确互动或良好区分）',
+                en: 'Interaction Clarity (clear interaction or clear independence)'
+            })}</h4>
         <ul>
-          <li><strong>看点：</strong>面对面/攻防/传接等是否清晰，有无因果链或配合关系。</li>
-          <li><strong>常见扣分：</strong>应有互动却“各跳各的”；有对视无回应；不知谁与谁互动。</li>
-          <li><strong>加分线索：</strong>“攻击–闪避”“握手”“传–接”等明确响应；无需互动的场景下，两人动作也清楚不干扰。</li>
-          <li><strong>注意：</strong>Prompt 不要求互动时，不要强行打低分；具体例子可参考示例。</li>
+          <li><strong>${T({
+                zh: '看点',
+                en: 'What to look for'
+            })}：</strong>${T({
+                zh: '面对面/攻防/传接等是否清晰，有无因果链或配合关系。',
+                en: 'Clarity of face-to-face/attack-defend/pass-receive; causal chain or coordination.'
+            })}</li>
+          <li><strong>${T({
+                zh: '常见扣分',
+                en: 'Typical deductions'
+            })}：</strong>${T({
+                zh: '应有互动却“各跳各的”；有对视无回应；不知谁与谁互动。',
+                en: 'Supposed interaction but independent motions; gaze without response; unclear pairing.'
+            })}</li>
+          <li><strong>${T({
+                zh: '加分线索',
+                en: 'Positive cues'
+            })}：</strong>${T({
+                zh: '“攻击–闪避”“握手”“传–接”等明确响应；不需要互动时也做到互不干扰。',
+                en: 'Clear responses (attack–dodge, handshake, pass–receive); non-interference when interaction not required.'
+            })}</li>
+          <li><strong>${T({
+                zh: '注意',
+                en: 'Note'
+            })}：</strong>${T({
+                zh: 'Prompt 不要求互动时，不要因“互动少”打低分；参考示例。',
+                en: 'If the prompt doesn’t require interaction, do not penalize for “little interaction”; see examples.'
+            })}</li>
         </ul>
 
-        <h4>3) 空间合理性与穿插控制（距离/站位/是否穿插）</h4>
+        <h4>3) ${T({
+                zh: '空间合理性与穿插控制（距离/站位/是否穿插）',
+                en: 'Spatial Plausibility & Penetration (distance/positioning/interpenetration)'
+            })}</h4>
         <ul>
-          <li><strong>看点：</strong>对打/舞蹈的安全距离与间隔；角色之间是否穿插、重叠、错位。</li>
-          <li><strong>常见扣分：</strong>手臂穿过身体/对方；身体重叠；脚插地或插对方；位置极不合理；频繁穿插。</li>
-          <li><strong>加分线索：</strong>距离合适、布局自然；完全无穿插；协调程度像真实表演。</li>
-          <li><strong>注意：</strong>复杂动作少量穿插可接受（≈3 分）；若整体合理仅个别手指/脚尖轻微穿插，可从 4 调至 3。</li>
+          <li><strong>${T({
+                zh: '看点',
+                en: 'What to look for'
+            })}：</strong>${T({
+                zh: '安全距离与间隔；是否出现穿插/重叠/错位。',
+                en: 'Safe distance/spacing; any interpenetration/overlap/misplacement.'
+            })}</li>
+          <li><strong>${T({
+                zh: '常见扣分',
+                en: 'Typical deductions'
+            })}：</strong>${T({
+                zh: '手臂穿过身体/对方；身体重叠；脚插地/插对方；位置极不合理；频繁穿插。',
+                en: 'Arms passing through body/other; body overlap; feet penetrating ground/other; grossly unreasonable positions; frequent penetration.'
+            })}</li>
+          <li><strong>${T({
+                zh: '加分线索',
+                en: 'Positive cues'
+            })}：</strong>${T({
+                zh: '距离合适、布局自然；完全无穿插；协调程度像真实表演。',
+                en: 'Appropriate distance and natural layout; no penetration; realistic coordination.'
+            })}</li>
+          <li><strong>${T({
+                zh: '注意',
+                en: 'Note'
+            })}：</strong>${T({
+                zh: '复杂动作少量穿插可接受（≈3 分）；若整体合理仅个别手指/脚尖轻微穿插，可从 4 调至 3。',
+                en: 'Minor penetration in complex moves can be acceptable (~3). If overall fine with tiny fingertip/toe penetration, consider lowering 4→3.'
+            })}</li>
         </ul>
 
-        <h4>4) 场景契合度（是否符合文本描述/角色分工）</h4>
+        <h4>4) ${T({
+                zh: '场景契合度（是否符合文本描述/角色分工）',
+                en: 'Scene / Prompt Relevance (matching description/roles)'
+            })}</h4>
         <ul>
-          <li><strong>看点：</strong>动作是否与描述一致，是否避免与 prompt 冲突；多要素是否分别落实。</li>
-          <li><strong>常见扣分：</strong>严重不符；只完成部分语义；两人混乱（该甲做的动作却乙在做）。</li>
-          <li><strong>加分线索：</strong>覆盖主要语义点；关键动作一目了然；还体现节奏/情绪张力。</li>
-          <li><strong>注意：</strong>与自然性独立：自然不代表契合；多要素要逐一检查是否到位。</li>
-        </ul>
-
-        <h4>评审提醒</h4>
-        <p>四个维度<strong>相互独立</strong>。请不要被“整体感觉”带偏：</p>
-        <ul>
-          <li>自然性 = 5，但无互动 → 互动清晰度仍应打低分（如 1）。</li>
-          <li>契合度 = 5，但有严重穿插 → 空间合理性应打低分（如 1）。</li>
+          <li><strong>${T({
+                zh: '看点',
+                en: 'What to look for'
+            })}：</strong>${T({
+                zh: '动作是否与描述一致；多要素是否到位；避免与 prompt 冲突。',
+                en: 'Actions match description; multiple elements covered; avoid contradictions with prompt.'
+            })}</li>
+          <li><strong>${T({
+                zh: '常见扣分',
+                en: 'Typical deductions'
+            })}：</strong>${T({
+                zh: '严重不符；只完成部分语义；角色混乱（甲的动作由乙完成）。',
+                en: 'Severe mismatch; only partial semantics; role confusion (A’s action done by B).'
+            })}</li>
+          <li><strong>${T({
+                zh: '加分线索',
+                en: 'Positive cues'
+            })}：</strong>${T({
+                zh: '覆盖主要语义点；关键动作一目了然；体现节奏/情绪张力。',
+                en: 'Covers key semantic points; clear key actions; shows rhythm/emotional tension.'
+            })}</li>
+          <li><strong>${T({
+                zh: '注意',
+                en: 'Note'
+            })}：</strong>${T({
+                zh: '与自然性独立：自然≠契合；多要素要逐一检查是否到位。',
+                en: 'Independent from naturalness: natural ≠ relevant; check elements one by one.'
+            })}</li>
         </ul>
       </div>
 
-      <div class="cta">
-        <button class="btn" id="toNext">下一页：注意事项</button>
-      </div>
-    `;
+      <div class="cta"><button class="btn" id="toNext">${T({zh: '下一页：注意事项', en: 'Next: Notes'})}</button></div>`;
             document.getElementById('toNext').addEventListener('click', () => load(current + 1));
         }
 
-        // —— 注意事项 —— //
+        // 注意事项（中文原意 + 英译）
         function renderNotice() {
             els.main.innerHTML = `
-      <h2>注意事项</h2>
+      <h2>${T({zh: '注意事项', en: 'Notes'})}</h2>
       <ol>
-        <li>页面提供中英文双语描述。中文为机器翻译，可能不准确，请以英文为准。</li>
-        <li>完成每个样本评分后，请务必点击 <strong>“保存当前评分”</strong>。</li>
-        <li>评分结果保存在本地浏览器；可随时关闭页面或电脑，但请不要清除浏览器数据，也不要在无痕模式下访问。</li>
-        <li>完成共识测试与正式实验后，请分别下载并妥善保存生成的 CSV 文件。</li>
+        <li>${T({
+                zh: '页面提供中英文；中文为机器翻译，可能不准确，请以英文为准。',
+                en: 'Prompts are shown in English/Chinese; Chinese is machine-translated—please rely on English.'
+            })}</li>
+        <li>${T({zh: '每题评分后务必点击 “保存当前评分”。', en: 'After each item, please click “Save current rating”.'})}</li>
+        <li>${T({
+                zh: '评分结果保存在浏览器本地；可随时关闭页面或电脑，但不要清除浏览器数据，也不要使用无痕模式。',
+                en: 'Ratings are stored locally; you may close the page/computer, but do not clear browser data or use incognito mode.'
+            })}</li>
+        <li>${T({
+                zh: '完成共识测试与正式评分后，请分别下载 CSV 文件并妥善保存。',
+                en: 'After finishing the consensus test and main evaluation, download and keep the CSV files.'
+            })}</li>
       </ol>
-      <div class="cta"><button class="btn" id="toNext">下一页：示例 1</button></div>
-    `;
+      <div class="cta"><button class="btn" id="toNext">${T({
+                zh: '下一页：示例 1',
+                en: 'Next: Example 1'
+            })}</button></div>`;
             document.getElementById('toNext').addEventListener('click', () => load(current + 1));
         }
 
-        // —— 示例页（双视角 + 预填分 + 你的自定义解析）—— //
-        function renderAnalysis(s) {
-            const ex = s.explain;
-            if (!ex) return '';
-            const rows = [];
-            if (ex.s1) rows.push(`<li><strong>动作自然性</strong>：${ex.s1}</li>`);
-            if (ex.s2) rows.push(`<li><strong>多人互动清晰度</strong>：${ex.s2}</li>`);
-            if (ex.s3) rows.push(`<li><strong>空间合理性与穿插控制</strong>：${ex.s3}</li>`);
-            if (ex.s4) rows.push(`<li><strong>场景契合度</strong>：${ex.s4}</li>`);
-            const hasList = rows.length > 0;
-            const overall = ex.overall ? `<div style="margin-top:8px;"><strong>综合说明：</strong>${ex.overall}</div>` : '';
-            if (!hasList && overall) {
-                return `<div class="analysis-box"><h3>评分解析</h3>${overall}</div>`;
-            }
-            if (hasList) {
-                return `<div class="analysis-box"><h3>评分解析</h3><ul>${rows.join('')}</ul>${overall}</div>`;
-            }
-            return '';
-        }
-
+        // 工具：渲染禁用的单行评分表
         function renderRow(label, name, val) {
             const cells = [1, 2, 3, 4, 5].map(v => `<td><input type="radio" name="${name}" value="${v}" ${v === val ? 'checked' : ''} disabled></td>`).join('');
             return `<tr><td class="rowlabel">${label}</td>${cells}</tr>`;
         }
 
+        // 工具：explain 取值（支持 string 或 {zh,en}）
+        function pickExplain(val) {
+            if (val == null) return '';
+            if (typeof val === 'string') return val;
+            return T(val);
+        }
+
+        function renderAnalysis(ex) {
+            if (!ex) return '';
+            const rows = [];
+            if (ex.s1) rows.push(`<li><strong>${T({
+                zh: '动作自然性',
+                en: 'Motion Naturalness'
+            })}</strong>：${pickExplain(ex.s1)}</li>`);
+            if (ex.s2) rows.push(`<li><strong>${T({
+                zh: '多人互动清晰度',
+                en: 'Interaction Clarity'
+            })}</strong>：${pickExplain(ex.s2)}</li>`);
+            if (ex.s3) rows.push(`<li><strong>${T({
+                zh: '空间合理性与穿插控制',
+                en: 'Spatial Plausibility & Penetration'
+            })}</strong>：${pickExplain(ex.s3)}</li>`);
+            if (ex.s4) rows.push(`<li><strong>${T({
+                zh: '场景契合度',
+                en: 'Scene / Prompt Relevance'
+            })}</strong>：${pickExplain(ex.s4)}</li>`);
+            const overall = ex.overall ? `<div style="margin-top:8px;"><strong>${T({
+                zh: '综合说明',
+                en: 'Overall'
+            })}</strong>：${pickExplain(ex.overall)}</div>` : '';
+            if (!rows.length && !overall) return '';
+            return `<div class="analysis-box"><h3>${T({
+                zh: '评分解析',
+                en: 'Explanation'
+            })}</h3>${rows.length ? `<ul>${rows.join('')}</ul>` : ''}${overall}</div>`;
+        }
+
+        // 示例页（中文界面：Prompt=英+中；英文界面：仅英）
         function renderSample(idx) {
             const s = samples[idx];
             const bi = prompts[s.prompt_id] || {};
             const en = bi.en || '', zh = bi.zh || '';
+            const promptHtml = Lang.isZH() ? ((en ? en : '') + (en && zh ? '<br>' : '') + (zh ? zh : '')) : (en || zh || '(No description)');
             const avg = ((s.prefill.s1 + s.prefill.s2 + s.prefill.s3 + s.prefill.s4) / 4).toFixed(2);
+
             els.main.innerHTML = `
-      <h2>${pages[current].title}</h2>
+      <h2>${T({zh: `示例 ${idx + 1}`, en: `Example ${idx + 1}`})}</h2>
       <div class="video-grid">
-        <div><div class="muted">视角 A</div><video controls preload="metadata" src="${s.camera_1}"></video></div>
-        <div><div class="muted">视角 B</div><video controls preload="metadata" src="${s.camera_2}"></video></div>
+        <div><div class="muted">${T({
+                zh: '视角 A',
+                en: 'Camera A'
+            })}</div><video controls preload="metadata" src="${s.camera_1}"></video></div>
+        <div><div class="muted">${T({
+                zh: '视角 B',
+                en: 'Camera B'
+            })}</div><video controls preload="metadata" src="${s.camera_2}"></video></div>
       </div>
+
       <div class="prompt-box">
-        <div class="muted">动作描述（Prompt）</div>
-        <div>${en}${en && zh ? '<br>' : ''}${zh}</div>
+        <div class="muted">${T({zh: '动作描述（Prompt）', en: 'Prompt'})}</div>
+        <div>${promptHtml}</div>
       </div>
+
       <div class="matrix">
         <table>
           <thead><tr><th class="rowlabel"></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr></thead>
           <tbody>
-            ${renderRow('动作自然性', 's1', s.prefill.s1)}
-            ${renderRow('多人互动清晰度', 's2', s.prefill.s2)}
-            ${renderRow('空间合理性与穿插控制', 's3', s.prefill.s3)}
-            ${renderRow('场景契合度', 's4', s.prefill.s4)}
+            ${renderRow(T({zh: '动作自然性', en: 'Motion Naturalness'}), 's1', s.prefill.s1)}
+            ${renderRow(T({zh: '多人互动清晰度', en: 'Interaction Clarity'}), 's2', s.prefill.s2)}
+            ${renderRow(T({zh: '空间合理性与穿插控制', en: 'Spatial Plausibility & Penetration'}), 's3', s.prefill.s3)}
+            ${renderRow(T({zh: '场景契合度', en: 'Scene / Prompt Relevance'}), 's4', s.prefill.s4)}
           </tbody>
         </table>
       </div>
-      <div class="avgbox">示例平均分：${avg}</div>
-      ${renderAnalysis(s)}
+      <div class="avgbox">${T({zh: '示例平均分', en: 'Sample Average'})}：${avg}</div>
+
+      ${renderAnalysis(s.explain)}
+
       <div class="cta">
-        ${current > 0 ? '<button class="btn" id="prev">上一页</button>' : ''}
-        ${current < pages.length - 1 ? '<button class="btn" id="next">下一页</button>' : ''}
-      </div>
-    `;
-            const prev = document.getElementById('prev');
-            const next = document.getElementById('next');
+        ${current > 0 ? `<button class="btn" id="prev">${T({zh: '上一页', en: 'Previous'})}</button>` : ''}
+        ${current < pages.length - 1 ? `<button class="btn" id="next">${T({zh: '下一页', en: 'Next'})}</button>` : ''}
+      </div>`;
+            const prev = document.getElementById('prev'), next = document.getElementById('next');
             if (prev) prev.addEventListener('click', () => load(current - 1));
             if (next) next.addEventListener('click', () => load(current + 1));
         }
 
-        // —— 共识测试：说明 —— //
-        function renderConsensusIntro() {
+        // 共识测试说明页
+        function renderConsIntro() {
             els.main.innerHTML = `
-      <h2>共识测试说明</h2>
-      <p class="muted">请先完成以下 <strong>${consensus.length}</strong> 道共识测试题（含 3 道重复题用于一致性评估）。每题完成后请点击“保存当前评分”；左侧目录会以绿色标记完成。完成所有测试后，请在“下载共识测试数据”页导出 CSV 并妥善保存，再进入正式评分。</p>
-      <div class="cta"><button class="btn" id="goFirst">开始共识测试</button></div>
-    `;
+      <h2>${T({zh: '共识测试说明', en: 'Consensus Test'})}</h2>
+      <p class="muted">${T({
+                zh: `请先完成以下 <strong>${consensus.length}</strong> 道共识测试题（含 3 道重复题用于一致性评估）。每题完成后请点击“保存当前评分”；左侧目录会以绿色标记完成。完成所有测试后，请在“下载共识测试数据”页导出 CSV 并妥善保存，再进入正式评分。`,
+                en: `Please complete <strong>${consensus.length}</strong> consensus tasks (including 3 repeats). After each item, click “Save current rating”. Completed items are marked green in the menu. When all are done, export the CSV on “Download Consensus CSV”, then proceed to the main rating.`
+            })}</p>
+      <div class="cta"><button class="btn" id="goFirst">${T({
+                zh: '开始共识测试',
+                en: 'Start Consensus Test'
+            })}</button></div>`;
             document.getElementById('goFirst').addEventListener('click', () => {
                 const first = pages.findIndex(p => p.type === 'cons_task');
                 load(first >= 0 ? first : pages.length - 1);
             });
         }
 
-        // —— 共识测试：单题页 —— //
-        function renderConsensusTask(idxInConsensus) {
-            const s = consensus[idxInConsensus];
+        // 共识测试题页面
+        function renderConsTask(idxInCons) {
+            const s = consensus[idxInCons];
             const bi = prompts[s.prompt_id] || {};
             const en = bi.en || '', zh = bi.zh || '';
-            const key = consKeyByIndex(idxInConsensus);
+            const key = consKeyByIndex(idxInCons);
+            const promptHtml = Lang.isZH() ? ((en ? en : '') + (en && zh ? '<br>' : '') + (zh ? zh : '')) : (en || zh || '(No description)');
 
             els.main.innerHTML = `
-      <h2>${pages[current].title}</h2>
+      <h2>${T({zh: `共识测试 ${idxInCons + 1}`, en: `Consensus ${idxInCons + 1}`})}</h2>
       <div class="video-grid">
-        <div><div class="muted">视角 A</div><video controls preload="metadata" src="${s.camera_1}"></video></div>
-        <div><div class="muted">视角 B</div><video controls preload="metadata" src="${s.camera_2}"></video></div>
+        <div><div class="muted">${T({
+                zh: '视角 A',
+                en: 'Camera A'
+            })}</div><video controls preload="metadata" src="${s.camera_1}"></video></div>
+        <div><div class="muted">${T({
+                zh: '视角 B',
+                en: 'Camera B'
+            })}</div><video controls preload="metadata" src="${s.camera_2}"></video></div>
       </div>
       <div class="prompt-box">
-        <div class="muted">动作描述（Prompt）</div>
-        <div>${en}${en && zh ? '<br>' : ''}${zh}</div>
+        <div class="muted">${T({zh: '动作描述（Prompt）', en: 'Prompt'})}</div>
+        <div>${promptHtml}</div>
       </div>
-
       <div class="matrix">
         <table>
           <thead><tr><th class="rowlabel"></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr></thead>
           <tbody>
-            ${[['动作自然性', 's1'], ['多人互动清晰度', 's2'], ['空间合理性与穿插控制', 's3'], ['场景契合度', 's4']]
-                .map(([label, name]) => `<tr><td class="rowlabel">${label}</td>${[1, 2, 3, 4, 5].map(v => `<td><input type="radio" name="${name}" value="${v}"></td>`).join('')}</tr>`).join('')}
+            ${[['s1', T({zh: '动作自然性', en: 'Motion Naturalness'})],
+                ['s2', T({zh: '多人互动清晰度', en: 'Interaction Clarity'})],
+                ['s3', T({zh: '空间合理性与穿插控制', en: 'Spatial Plausibility & Penetration'})],
+                ['s4', T({zh: '场景契合度', en: 'Scene / Prompt Relevance'})]]
+                .map(([n, label]) => `<tr><td class="rowlabel">${label}</td>${[1, 2, 3, 4, 5].map(v => `<td><input type="radio" name="${n}" value="${v}"></td>`).join('')}</tr>`).join('')}
           </tbody>
         </table>
       </div>
-
-      <div class="avgbox">平均分：<span id="cavg">—</span></div>
-
+      <div class="avgbox">${T({zh: '平均分', en: 'Average'})}：<span id="cavg">—</span></div>
       <div class="cta">
-        ${current > 0 ? '<button class="btn" id="prev">上一题</button>' : ''}
-        <button class="btn" id="save">保存当前评分</button>
-        ${current < pages.length - 1 ? '<button class="btn" id="next">下一题</button>' : ''}
-      </div>
-    `;
+        ${current > 0 ? `<button class="btn" id="prev">${T({zh: '上一题', en: 'Previous'})}</button>` : ''}
+        <button class="btn" id="save">${T({zh: '保存当前评分', en: 'Save current rating'})}</button>
+        ${current < pages.length - 1 ? `<button class="btn" id="next">${T({zh: '下一题', en: 'Next'})}</button>` : ''}
+      </div>`;
 
             function getSel(n) {
                 const x = els.main.querySelector(`input[name="${n}"]:checked`);
                 return x ? Number(x.value) : NaN;
             }
 
-            function setSel(n, val) {
-                els.main.querySelectorAll(`input[name="${n}"]`).forEach(r => r.checked = (Number(r.value) === Number(val)));
+            function setSel(n, v) {
+                els.main.querySelectorAll(`input[name="${n}"]`).forEach(r => r.checked = (Number(r.value) === Number(v)));
             }
 
             function calcAvg() {
@@ -568,7 +832,7 @@
 
             els.main.querySelectorAll('input[type="radio"]').forEach(r => r.addEventListener('change', calcAvg));
 
-            // 恢复该题已保存
+            // 恢复
             const prev = consResults.get(key);
             if (prev) {
                 setSel('s1', prev.s1);
@@ -578,70 +842,77 @@
             }
             calcAvg();
 
-            // 保存当前题
+            // 保存
             els.main.querySelector('#save').addEventListener('click', () => {
                 const s1 = getSel('s1'), s2 = getSel('s2'), s3 = getSel('s3'), s4 = getSel('s4');
                 if ([s1, s2, s3, s4].some(v => Number.isNaN(v))) {
-                    alert('请完成4项评分再保存。');
+                    alert(T({zh: '请完成4项评分再保存。', en: 'Please finish all four scores before saving.'}));
                     return;
                 }
                 const avg = Number(els.main.querySelector('#cavg').textContent);
-                const saved_at = new Date().toISOString();
-
                 const record = {
                     key,
-                    cons_index: idxInConsensus + 1, // 1-based 题号
+                    cons_index: idxInCons + 1,
                     video_id: s.video_id,
-                    repeat_of: s.repeat_of || '',   // 若为重复题则有值
-                    s1, s2, s3, s4, avg, saved_at
+                    repeat_of: s.repeat_of || '',
+                    s1,
+                    s2,
+                    s3,
+                    s4,
+                    avg,
+                    saved_at: new Date().toISOString()
                 };
                 consResults.set(key, record);
-
-                // 本地续存（跨重启）
                 const obj = {};
                 for (const [k, v] of consResults.entries()) obj[k] = v;
                 localStorage.setItem(CONS_KEY, JSON.stringify(obj));
-
                 const btn = els.main.querySelector('#save');
-                btn.textContent = '已保存 ✓';
-                setTimeout(() => btn.textContent = '保存当前评分', 800);
+                btn.textContent = T({zh: '已保存 ✓', en: 'Saved ✓'});
+                setTimeout(() => btn.textContent = T({zh: '保存当前评分', en: 'Save current rating'}), 800);
                 updateIndexDoneStates();
                 updateMeta();
             });
-
-            const prevBtn = els.main.querySelector('#prev');
-            const nextBtn = els.main.querySelector('#next');
+            const prevBtn = els.main.querySelector('#prev'), nextBtn = els.main.querySelector('#next');
             if (prevBtn) prevBtn.addEventListener('click', () => load(current - 1));
             if (nextBtn) nextBtn.addEventListener('click', () => load(current + 1));
         }
 
-        // —— 共识测试：导出页 —— //
-        function renderConsensusExport() {
-            const doneCount = consensus.reduce((acc, _, i) => acc + (consResults.has(consKeyByIndex(i)) ? 1 : 0), 0);
+        // 共识测试导出页（含上一页/下一页/打开正式评分）
+        function renderConsExport() {
+            const done = consensus.reduce((acc, _, i) => acc + (consResults.has(consKeyByIndex(i)) ? 1 : 0), 0);
             els.main.innerHTML = `
-      <h2>共识测试完成</h2>
-      <p class="muted">你已完成共识测试：<strong>${doneCount}/${consensus.length}</strong>。请点击下方按钮导出并保存你的共识测试评分 CSV 文件，然后进入正式评分（新窗口）。</p>
+      <h2>${T({zh: '共识测试完成', en: 'Consensus Completed'})}</h2>
+      <p class="muted">${T({
+                zh: `你已完成共识测试：<strong>${done}/${consensus.length}</strong>。请点击下方按钮导出并保存你的共识测试评分 CSV 文件，然后进入正式评分（新窗口）。`,
+                en: `You have completed <strong>${done}/${consensus.length}</strong>. Please export your consensus CSV below, then proceed to the main rating (new tab).`
+            })}</p>
       <div class="cta">
-        <button class="btn" id="prev">上一页</button>
-        <button class="btn" id="exportCons">导出共识测试 CSV</button>
-        <button class="btn" id="next">下一页</button>
-      </div>
-    `;
-
+        <button class="btn" id="prev">${T({zh: '上一页', en: 'Previous'})}</button>
+        <button class="btn" id="exportCons">${T({zh: '导出共识测试 CSV', en: 'Export Consensus CSV'})}</button>
+        <button class="btn" id="next">${T({zh: '下一页', en: 'Next'})}</button>
+        <a class="btn" target="_blank" href="index.html?user=${encodeURIComponent(user)}">${T({
+                zh: '开启正式评分（新窗口）',
+                en: 'Open Main Rating (new tab)'
+            })}</a>
+      </div>`;
+            document.getElementById('prev').addEventListener('click', () => load(current - 1));
+            document.getElementById('next').addEventListener('click', () => load(current + 1));
             document.getElementById('exportCons').addEventListener('click', () => {
                 const missing = [];
                 for (let i = 0; i < consensus.length; i++) {
                     if (!consResults.has(consKeyByIndex(i))) missing.push(i + 1);
                 }
                 if (missing.length) {
-                    alert(`还有 ${missing.length} 道未评分（示例题号）：\n` + missing.slice(0, 10).join(', '));
+                    alert(T({
+                        zh: `还有 ${missing.length} 道未评分：\n` + missing.slice(0, 10).join(', '),
+                        en: `There are ${missing.length} unfinished items:\n` + missing.slice(0, 10).join(', ')
+                    }));
                     return;
                 }
                 const header = ['user', 'cons_index', 'video_id', 'repeat_of', 's1', 's2', 's3', 's4', 'avg'];
                 const rows = [header.join(',')];
                 for (let i = 0; i < consensus.length; i++) {
-                    const k = consKeyByIndex(i);
-                    const r = consResults.get(k);
+                    const r = consResults.get(consKeyByIndex(i));
                     rows.push([user, r.cons_index, r.video_id, r.repeat_of || '', r.s1, r.s2, r.s3, r.s4, r.avg].join(','));
                 }
                 const blob = new Blob([rows.join('\n')], {type: 'text/csv;charset=utf-8;'});
@@ -652,25 +923,27 @@
                 a.click();
                 a.remove();
             });
-
-            document.getElementById('prev').addEventListener('click', () => load(current - 1));
-            document.getElementById('next').addEventListener('click', () => load(current + 1));
         }
 
-        // —— 最后一页 —— //
+        // 结束页（进入正式评分）
         function renderStart() {
             els.main.innerHTML = `
-      <h2>培训完成</h2>
-      <p class="muted">你已阅读评分标准、查看示例，并完成共识测试。请在新窗口打开正式评分页面，培训页会保留，方便随时对照标准。</p>
+      <h2>${T({zh: '培训完成', en: 'Training Completed'})}</h2>
+      <p class="muted">${T({
+                zh: '你已阅读评分标准、查看示例，并完成共识测试。可以在新窗口打开正式评分页面，本培训页可保留以便随时对照。',
+                en: 'You have reviewed the standards and examples, and completed the consensus test. Open the main rating page in a new tab; keep this page for reference.'
+            })}</p>
       <div class="cta">
-        <a class="btn" target="_blank" href="index.html?user=${encodeURIComponent(user)}">开启正式评分（新窗口）</a>
-        <button class="btn" id="back">返回上一页</button>
-      </div>
-    `;
+        <a class="btn" target="_blank" href="index.html?user=${encodeURIComponent(user)}">${T({
+                zh: '开启正式评分（新窗口）',
+                en: 'Open Main Rating (new tab)'
+            })}</a>
+        <button class="btn" id="back">${T({zh: '上一页', en: 'Previous'})}</button>
+      </div>`;
             document.getElementById('back').addEventListener('click', () => load(current - 1));
         }
 
-        // —— 页面分发 —— //
+        // ============ 路由 ============
         function load(idx) {
             current = Math.max(0, Math.min(idx, pages.length - 1));
             setActive(current);
@@ -679,14 +952,14 @@
             if (p.type === 'welcome') renderWelcome();
             else if (p.type === 'standard') renderStandard();
             else if (p.type === 'notice') renderNotice();
-            else if (p.type === 'sample') renderSample(p.idx);          // ★ 用显式 idx，避免 current 偏移
-            else if (p.type === 'cons_intro') renderConsensusIntro();
-            else if (p.type === 'cons_task') renderConsensusTask(p.idx);
-            else if (p.type === 'cons_export') renderConsensusExport();
+            else if (p.type === 'sample') renderSample(p.idx);
+            else if (p.type === 'cons_intro') renderConsIntro();
+            else if (p.type === 'cons_task') renderConsTask(p.idx);
+            else if (p.type === 'cons_export') renderConsExport();
             else if (p.type === 'start') renderStart();
         }
 
-        // —— 加载数据：示例/双语 prompt/共识清单 —— //
+        // ============ 数据加载 & 页面装配 ============
         Promise.all([
             fetch('data/training_samples.json', {cache: 'no-store'}).then(r => r.json()),
             fetch('data/prompts_bi.json', {cache: 'no-store'}).then(r => r.json()).catch(() => ({})),
@@ -696,41 +969,47 @@
             prompts = pmap || {};
             consensus = cons || [];
 
-            // 动态把“示例页”加入目录（按 JSON 数量）
-            samples.forEach((_, i) => pages.push({type: 'sample', title: `示例 ${i + 1}`, idx: i}));
+            // 动态装配：示例页
+            samples.forEach((_, i) => pages.push({
+                type: 'sample',
+                title_zh: `示例 ${i + 1}`,
+                title_en: `Example ${i + 1}`,
+                idx: i
+            }));
 
-            // 恢复共识本地存档（兼容老版本）
+            // 恢复共识本地存档
             try {
                 const raw = localStorage.getItem(CONS_KEY);
                 if (raw) {
                     const obj = JSON.parse(raw);
-                    Object.values(obj).forEach(r => {
-                        const k = r.key || null;
-                        if (k) consResults.set(k, r); // 新版：带 key
-                        // 旧版（仅 video_id）不做迁移，避免重复题错配；让用户重新保存重复题即可
-                    });
+                    Object.values(obj).forEach(r => consResults.set(r.key, r));
                 }
             } catch (e) {
-                console.warn('consensus localStorage 恢复失败', e);
+                console.warn('consensus restore failed', e);
             }
 
-            // 再追加：共识说明 -> N道共识题 -> 下载导出 -> 开始正式评分
-            pages.push({type: 'cons_intro', title: '共识测试说明'});
-            consensus.forEach((_, idx) => pages.push({type: 'cons_task', title: `共识测试 ${idx + 1}`, idx}));
-            pages.push({type: 'cons_export', title: '下载共识测试数据'});
-            pages.push({type: 'start', title: '开始正式评分'});
+            // 共识测试与结束页
+            pages.push({type: 'cons_intro', title_zh: '共识测试说明', title_en: 'Consensus Test'});
+            consensus.forEach((_, idx) => pages.push({
+                type: 'cons_task',
+                title_zh: `共识测试 ${idx + 1}`,
+                title_en: `Consensus ${idx + 1}`,
+                idx
+            }));
+            pages.push({type: 'cons_export', title_zh: '下载共识测试数据', title_en: 'Download Consensus CSV'});
+            pages.push({type: 'start', title_zh: '开始正式评分', title_en: 'Start Main Rating'});
 
+            // 渲染
+            initLangSwitch();
             renderIndex();
             load(0);
         }).catch(err => {
-            alert('加载培训数据失败：' + err.message);
+            alert((Lang.isZH() ? '加载培训数据失败：' : 'Failed to load training data: ') + err.message);
             console.error(err);
         });
-
     })();
 </script>
 
+
 </body>
 </html>
-
-
