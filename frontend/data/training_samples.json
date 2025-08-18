@@ -5,14 +5,33 @@
     "prompt_id": "17",
     "camera_1": "https://motion-videos-1373018106.cos.ap-guangzhou.myqcloud.com/videos_processed_20180/17(1).mp4",
     "camera_2": "https://motion-videos-1373018106.cos.ap-guangzhou.myqcloud.com/videos_processed_3045/17(1).mp4",
-    "prefill": { "s1": 3, "s2": 5, "s3": 5, "s4": 4 },
+    "prefill": {
+      "s1": 3,
+      "s2": 5,
+      "s3": 5,
+      "s4": 4
+    },
     "explain": {
-      "s1": "仔细观察可以发现，蓝色的人物有轻微的平移，所以给出3分",
-      "s2": "角色没有互相干扰，两人间的交互合理（即使是没有交互）",
-      "s3": "两人保持的距离合理适中，没有太远也没有太近，角色位置空间安排合理",
-      "s4": "两人的动作与场景较契合",
-      "overall": "本样本是一种典型双人动作样本，该样本的双人动作本身就没有设计成两人的强互动，Prompt 本身描述的就是两人各自较为独立的动作，这种情况下不应该因为“互动少”而在多人互动清晰度上添加惩罚，互动清晰度评分应理解为“动作之间的关系是否清晰合理、互不干扰。在本样例中两个人的动作关系合理，即使他们没有太多互相交互，也可以获得高分。而本样本中动作自然性分数不高是因为角色有轻微的平移，"
-
+      "s1": {
+        "zh": "仔细观察可以发现，蓝色的人物有轻微的平移，所以给出3分",
+        "en": "On closer inspection, the blue character shows slight sliding, so the score is 3."
+      },
+      "s2": {
+        "zh": "角色没有互相干扰，两人间的交互合理（即使是没有交互）",
+        "en": "The characters do not interfere with each other; their interaction is reasonable (even if minimal)."
+      },
+      "s3": {
+        "zh": "两人保持的距离合理适中，没有太远也没有太近，角色位置空间安排合理",
+        "en": "The two maintain an appropriate distance, neither too far nor too close; spatial arrangement is reasonable."
+      },
+      "s4": {
+        "zh": "两人的动作与场景较契合",
+        "en": "Their actions are fairly consistent with the scene."
+      },
+      "overall": {
+        "zh": "本样本是一种典型双人动作样本，该样本的双人动作本身就没有设计成两人的强互动，Prompt 本身描述的就是两人各自较为独立的动作，这种情况下不应该因为“互动少”而在多人互动清晰度上添加惩罚，互动清晰度评分应理解为“动作之间的关系是否清晰合理、互不干扰。在本样例中两个人的动作关系合理，即使他们没有太多互相交互，也可以获得高分。而本样本中动作自然性分数不高是因为角色有轻微的平移，",
+        "en": "This sample is a typical two-person motion where the prompt describes relatively independent actions, not strong interaction. In such cases, 'lack of interaction' should not be penalized. Interaction clarity should mean whether the relationship between actions is clear, reasonable, and non-interfering. Here, the two characters’ relationship is reasonable, so they can receive high scores even without much direct interaction. However, motion naturalness is lower due to slight sliding of the character."
+      }
     }
   },
   {
@@ -21,11 +40,25 @@
     "prompt_id": "250",
     "camera_1": "https://motion-videos-1373018106.cos.ap-guangzhou.myqcloud.com/videos_processed_20180/250(3).mp4",
     "camera_2": "https://motion-videos-1373018106.cos.ap-guangzhou.myqcloud.com/videos_processed_3045/250(3).mp4",
-    "prefill": { "s1": 5, "s2": 4, "s3": 4, "s4": 3 },
+    "prefill": {
+      "s1": 5,
+      "s2": 4,
+      "s3": 4,
+      "s4": 3
+    },
     "explain": {
-      "s1": "虽然时间短，但两人的动作都很流畅自然",
-      "s4": "两人的左/右手都提前举起指向对方，该处与语义不符，但是迈腿动作相符",
-      "overall": "该动作虽然持续时间较短，但是他与动作描述文本描述的一致，且动作流畅自然，因此也可以给出高分"
+      "s1": {
+        "zh": "虽然时间短，但两人的动作都很流畅自然",
+        "en": "Although the duration is short, both characters’ movements are smooth and natural."
+      },
+      "s4": {
+        "zh": "两人的左/右手都提前举起指向对方，该处与语义不符，但是迈腿动作相符",
+        "en": "Both characters raise their left/right hands toward each other prematurely, which mismatches the semantics, though the leg movements are consistent."
+      },
+      "overall": {
+        "zh": "该动作虽然持续时间较短，但是他与动作描述文本描述的一致，且动作流畅自然，因此也可以给出高分",
+        "en": "Although short in duration, the motion aligns with the description and is smooth and natural, so it deserves a high score."
+      }
     }
   },
   {
@@ -34,10 +67,21 @@
     "prompt_id": "384",
     "camera_1": "https://motion-videos-1373018106.cos.ap-guangzhou.myqcloud.com/videos_processed_20180/384(3).mp4",
     "camera_2": "https://motion-videos-1373018106.cos.ap-guangzhou.myqcloud.com/videos_processed_3045/384(3).mp4",
-    "prefill": { "s1": 4, "s2": 5, "s3": 5, "s4": 5 },
+    "prefill": {
+      "s1": 4,
+      "s2": 5,
+      "s3": 5,
+      "s4": 5
+    },
     "explain": {
-      "s2": "角色没有互相干扰，两人间的交互合理（即使是没有交互）",
-      "overall": "该动作虽然持续时间较短，但是他与动作描述文本描述的一致，且动作流畅自然，因此也可以给出高分"
+      "s2": {
+        "zh": "角色没有互相干扰，两人间的交互合理（即使是没有交互）",
+        "en": "The characters do not interfere with each other; their interaction is reasonable (even if minimal)."
+      },
+      "overall": {
+        "zh": "该动作虽然持续时间较短，但是他与动作描述文本描述的一致，且动作流畅自然，因此也可以给出高分",
+        "en": "Although short in duration, the motion matches the prompt and is smooth and natural, thus deserving a high score."
+      }
     }
   },
   {
@@ -46,11 +90,25 @@
     "prompt_id": "25",
     "camera_1": "https://motion-videos-1373018106.cos.ap-guangzhou.myqcloud.com/videos_processed_20180/25(2).mp4",
     "camera_2": "https://motion-videos-1373018106.cos.ap-guangzhou.myqcloud.com/videos_processed_3045/25(2).mp4",
-    "prefill": { "s1": 3, "s2": 4, "s3": 4, "s4": 1 },
+    "prefill": {
+      "s1": 3,
+      "s2": 4,
+      "s3": 4,
+      "s4": 1
+    },
     "explain": {
-      "s1": "动作中的两人会时不时不自然的弯曲膝盖",
-      "s4": "文本描述的场景是两个人拥抱，但是动作表现得更像在跳舞",
-      "overall": "动作自然性考量的是动作是否自然的，一些不自然的，不合理的关节摆动可以被认为是低动作自然性的表现。另外该样本中动作的表现与文本描述的场景十分不符。"
+      "s1": {
+        "zh": "动作中的两人会时不时不自然的弯曲膝盖",
+        "en": "The two characters occasionally bend their knees unnaturally."
+      },
+      "s4": {
+        "zh": "文本描述的场景是两个人拥抱，但是动作表现得更像在跳舞",
+        "en": "The prompt describes hugging, but the motion looks more like dancing."
+      },
+      "overall": {
+        "zh": "动作自然性考量的是动作是否自然的，一些不自然的，不合理的关节摆动可以被认为是低动作自然性的表现。另外该样本中动作的表现与文本描述的场景十分不符。",
+        "en": "Motion naturalness considers whether actions appear natural. Unnatural or unreasonable joint movements indicate low naturalness. Moreover, this sample’s motions are highly inconsistent with the described scene."
+      }
     }
   },
   {
@@ -59,12 +117,28 @@
     "prompt_id": "400",
     "camera_1": "https://motion-videos-1373018106.cos.ap-guangzhou.myqcloud.com/videos_processed_20180/400(2).mp4",
     "camera_2": "https://motion-videos-1373018106.cos.ap-guangzhou.myqcloud.com/videos_processed_3045/400(2).mp4",
-    "prefill": { "s1": 3, "s2": 4, "s3": 5, "s4": 2 },
+    "prefill": {
+      "s1": 3,
+      "s2": 4,
+      "s3": 5,
+      "s4": 2
+    },
     "explain": {
-      "s2": "两人的互相交互较为清晰，表现出清晰面对面的互动关系，且交互安排合理",
-      "s4": "动作存在与语义相符的地方，如蓝色的人从左侧站起来，但后面蓝色的人又蹲下了，且红色的人也是从蹲下的状态站起来的，这两处与文本语义和描述不符合，因此给出低分",
-      "overall": "当评价多人互动清晰度时，不要被样本的语义契合度所干扰。在本样本中，两人运动表现的语义契合度较低，但是他们两人间的动作交互关系是清晰的。另外有些样本的动作描述中可能会带有关于表情的描述，关于这些描述可以忽略（例如在本题中不要因为角色没有微笑就在场景契合度上给低分，而是考虑角色有没有表现出一个高兴的状态）"
+      "s2": {
+        "zh": "两人的互相交互较为清晰，表现出清晰面对面的互动关系，且交互安排合理",
+        "en": "Their interaction is clear, showing a face-to-face relationship with reasonable coordination."
+      },
+      "s4": {
+        "zh": "动作存在与语义相符的地方，如蓝色的人从左侧站起来，但后面蓝色的人又蹲下了，且红色的人也是从蹲下的状态站起来的，这两处与文本语义和描述不符合，因此给出低分",
+        "en": "Some actions match semantics, e.g., the blue character standing up from the left, but later the blue character crouches again, and the red one also stands up from crouching. These mismatches with the prompt justify a low score."
+      },
+      "overall": {
+        "zh": "当评价多人互动清晰度时，不要被样本的语义契合度所干扰。在本样本中，两人运动表现的语义契合度较低，但是他们两人间的动作交互关系是清晰的。另外有些样本的动作描述中可能会带有关于表情的描述，关于这些描述可以忽略（例如在本题中不要因为角色没有微笑就在场景契合度上给低分，而是考虑角色有没有表现出一个高兴的状态）",
+        "en": "When evaluating interaction clarity, do not be distracted by semantic relevance. In this sample, the semantic consistency is low, but the interaction between the two characters is clear. Some prompts may include expressions, which can be ignored (e.g., here, do not lower the relevance score just because the characters are not smiling—consider instead whether they show a happy state)."
+      }
     }
   }
 ]
+
+
 
