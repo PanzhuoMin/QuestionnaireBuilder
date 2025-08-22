@@ -449,19 +449,20 @@
           <tr>
             <td>${T({zh: '多人互动清晰度', en: 'Interaction Clarity'})} <span class="std-ename">(Interaction Clarity)</span></td>
             <td>${T({
-                zh: '几乎无互动或互动模糊，意图不可辨。',
-                en: 'Little or unclear interaction; intentions indistinct.'
+                zh: '几乎无互动或互动模糊，意图不可辨；动作时机严重错乱。',
+                en: 'Almost no interaction or the interaction is vague, intentions unclear; severe mismatch in action timing.'
             })}</td>
             <td>${T({
-                zh: '有互动迹象但配合不足，目标模糊。',
-                en: 'Signs of interaction but weak coordination; vague goals.'
+                zh: '有互动迹象但配合不足，目标模糊；时机大多不对应。',
+                en: 'Some signs of interaction but poorly coordinated, unclear targets; timing mostly inconsistent.'
             })}</td>
-            <td>${T({zh: '互动结构可辨，部分回应不到位。', en: 'Recognizable structure; some responses missing.'})}</td>
+            <td>${T({zh: '互动结构可辨，部分回应不到位；动作时机偶尔对应，整体可接受。',
+                     en: 'Interaction structure recognizable, some responses missing; timing sometimes matches, overall acceptable.'})}</td>
             <td>${T({
-                zh: '互动明确、配合良好，有因果链。',
-                en: 'Clear interaction; good coordination; causal links present.'
+                zh: '互动明确，配合良好，有因果链条；时机大体对应。',
+                en: 'Interaction is clear, coordination is good, with causal links; timing largely matches.'
             })}</td>
-            <td>${T({zh: '高度清晰、连贯，回应紧密。', en: 'Highly clear and coherent; tightly coupled responses.'})}</td>
+            <td>${T({zh: '高度清晰、连贯、紧密对应；动作时机和逻辑呼应完美。', en: 'Highly clear, coherent, and tightly coordinated; action timing and logic correspond perfectly.'})}</td>
           </tr>
           <tr>
             <td>${T({zh: '空间合理性与穿插控制', en: 'Spatial Plausibility & Penetration'})} <span class="std-ename">(Spatial Plausibility & Penetration)</span></td>
@@ -527,37 +528,37 @@
         </ul>
 
         <h4>2) ${T({
-                zh: '多人互动清晰度（是否能看出明确互动或良好区分）',
-                en: 'Interaction Clarity (clear interaction or clear independence)'
+                zh: '多人互动清晰度（强调明确的互动和时间上的对应关系）',
+                en: 'Interaction Clarity (Emphasize clear interaction and temporal correspondence)'
             })}</h4>
         <ul>
           <li><strong>${T({
                 zh: '看点',
                 en: 'What to look for'
             })}：</strong>${T({
-                zh: '面对面/攻防/传接等是否清晰，有无因果链或配合关系。',
-                en: 'Clarity of face-to-face/attack-defend/pass-receive; causal chain or coordination.'
+                zh: '面对面/攻防/传接等是否清晰，有无因果链或配合关系；动作的时机是否对应。',
+                en: 'Clarity of face-to-face/attack-defend/pass-receive; causal chain or coordination; Do the actions correspond in timing'
             })}</li>
           <li><strong>${T({
                 zh: '常见扣分',
                 en: 'Typical deductions'
             })}：</strong>${T({
-                zh: '应有互动却“各跳各的”；有对视无回应；不知谁与谁互动。',
-                en: 'Supposed interaction but independent motions; gaze without response; unclear pairing.'
+                zh: '应有互动却“各跳各的”；有对视无回应；不知谁与谁互动；有互动，但动作时机错乱，缺乏对应。',
+                en: 'Supposed interaction but independent motions; gaze without response; unclear pairing; There is interaction but timing is inconsistent, lacking correspondence.'
             })}</li>
           <li><strong>${T({
                 zh: '加分线索',
                 en: 'Positive cues'
             })}：</strong>${T({
-                zh: '“攻击–闪避”“握手”“传–接”等明确响应；不需要互动时也做到互不干扰。',
-                en: 'Clear responses (attack–dodge, handshake, pass–receive); non-interference when interaction not required.'
+                zh: '“攻击–闪避”“握手”“传–接”等明确响应；不需要互动时也做到互不干扰；两人动作时机对上（舞蹈：同时举手，格斗：一拳一闪）',
+                en: 'Clear responses (attack–dodge, handshake, pass–receive); non-interference when interaction not required; Two characters do the right correspondence (dance: raise up hands at the same time, punch: one punch one dodge)'
             })}</li>
           <li><strong>${T({
                 zh: '注意',
                 en: 'Note'
             })}：</strong>${T({
-                zh: 'Prompt 不要求互动时，不要因“互动少”打低分；参考示例。',
-                en: 'If the prompt doesn’t require interaction, do not penalize for “little interaction”; see examples.'
+                zh: 'Prompt 不要求互动时，不要因“互动少”打低分；参考示例；当两人动作时机对上（舞蹈：同时举手，格斗：一拳一闪），即使空间上出错（太远/朝向错误），互动清晰度依然应该高，而空间合理性要低。',
+                en: 'If the prompt doesn’t require interaction, do not penalize for “little interaction”; see examples; If two characters do the right correspondence (dance: raise up hands at the same time, punch: one punch one dodge), but their spatial relationship are wrong (too far away, wrong face direction), their Interaction Clarity should be hight and Spatial Plausibility & Penetration should be low.'
             })}</li>
         </ul>
 
