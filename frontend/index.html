@@ -547,33 +547,43 @@
         }
 
         function exportCSV() {
-            if (results.size < tasks.length) {
-                const missing = [];
-                for (const t of tasks) {
-                    if (!results.has(t.video_id)) missing.push(t.video_id);
-                    if (missing.length >= 10) break;
-                }
-                const remain = tasks.length - results.size - missing.length;
-                const msg = Lang.isEN()
-                    ? `There are ${tasks.length - results.size} unrated items:\n` + missing.join(', ') + (remain > 0 ? ' … etc.' : '')
-                    : `还有 ${tasks.length - results.size} 条未评分：\n` + missing.join(', ') + (remain > 0 ? ' … 等' : '');
-                alert(msg);
-                return;
-            }
+            const ratedCount = results.size;
+            const total = tasks.length;
+
+            // 组装 CSV 行（只导出已评分的题）
             const header = ['user', 'video_id', 's1', 's2', 's3', 's4', 'avg'];
-            const rows = [header.join(',')];
+            const rows = [];
+
+            // 在文件头写一行元信息（可用 Excel 打开）
+            rows.push(`# user=${user}, rated=${ratedCount}, total=${total}, unrated=${total - ratedCount}, exported_at=${new Date().toISOString()}`);
+            rows.push(header.join(','));
+
+            // 如果尚未全部完成，给出提示并征求确认
+            if (ratedCount < total) {
+                const proceed = confirm(
+                    Lang.isEN()
+                        ? `You have rated ${ratedCount}/${total} items. Export only the completed ones?`
+                        : `你已完成 ${ratedCount}/${total} 条。是否仅导出已完成的题目？`
+                );
+                if (!proceed) return;
+            }
+
+            // 仅写出“已评分”的记录
             for (const tsk of tasks) {
                 const r = results.get(tsk.video_id);
+                if (!r) continue; // 未评分则跳过
                 rows.push([user, r.video_id, r.s1, r.s2, r.s3, r.s4, r.avg].join(','));
             }
+
             const blob = new Blob([rows.join('\n')], {type: 'text/csv;charset=utf-8;'});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `${user}_ratings.csv`;
+            a.download = `${user}_ratings_partial.csv`;
             document.body.appendChild(a);
             a.click();
             a.remove();
         }
+
 
         // 事件绑定
         document.getElementById('prevBtn').addEventListener('click', () => load(i - 1));
@@ -629,3 +639,4 @@
 </script>
 </body>
 </html>
+
