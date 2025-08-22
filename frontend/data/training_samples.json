@@ -44,7 +44,7 @@
       "s1": 5,
       "s2": 4,
       "s3": 4,
-      "s4": 3
+      "s4": 4
     },
     "explain": {
       "s1": {
@@ -52,8 +52,8 @@
         "en": "Although the duration is short, both characters’ movements are smooth and natural."
       },
       "s4": {
-        "zh": "两人的左/右手都提前举起指向对方，该处与语义不符，但是迈腿动作相符",
-        "en": "Both characters raise their left/right hands toward each other prematurely, which mismatches the semantics, though the leg movements are consistent."
+        "zh": "虽然手部动作有轻微不符，但整体与场景描述一致，因此场景契合度仍然较高",
+        "en": "Although the hand movements are slightly inconsistent, the overall action matches the described scene, so the relevance remains high."
       },
       "overall": {
         "zh": "该动作虽然持续时间较短，但是他与动作描述文本描述的一致，且动作流畅自然，因此也可以给出高分",
@@ -93,13 +93,17 @@
     "prefill": {
       "s1": 3,
       "s2": 4,
-      "s3": 4,
+      "s3": 2,
       "s4": 1
     },
     "explain": {
       "s1": {
         "zh": "动作中的两人会时不时不自然的弯曲膝盖",
         "en": "The two characters occasionally bend their knees unnaturally."
+      },
+      "s3": {
+        "zh": "该动作存在明显的穿插现象（角色手臂交叠,你需要考虑人体肌肉的大小），因此空间合理性最多只能给 2 分",
+        "en": "This action has obvious interlacing (the character's arms overlap, and you need to consider the size of the human body), so the spatial rationality can only be scored at most 2 points."
       },
       "s4": {
         "zh": "文本描述的场景是两个人拥抱，但是动作表现得更像在跳舞",
